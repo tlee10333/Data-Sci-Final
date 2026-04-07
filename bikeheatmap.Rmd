@@ -1,0 +1,121 @@
+---
+title: "projectwork"
+author: "Amanda Chang"
+date: "2026-04-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)     # for data cleaning and plotting
+library(DT)            # for visualizing data tables 
+library(janitor)       # for automatically renaming variables
+library(ggmap)         # for mapping points on maps
+library(RColorBrewer)  # for color palettes
+library(sf)            # for working with spatial data
+library(leaflet)       # for highly customizable mapping
+library(ggthemes)      # for more themes (including theme_map())
+library(gplots)        # for col2hex() function
+library(choroplethr)   # another option to make choropleths
+library(choroplethrMaps)
+library(maps)
+library(leaflet.extras)
+```
+
+```{r, include=FALSE}
+boston_crashes_raw <- read.csv("visionzerocrash.csv")
+
+bike_network <- st_read("existing_bike_network_2024.geojson") %>% 
+  st_transform(4326) # Ensure WGS84 for Leaflet
+head(bike_network)
+```
+
+```{r}
+unique(bike_network$ExisFacil)
+```
+
+```{r}
+bike_crashes <- boston_crashes_raw %>%
+  filter(mode_type == "bike") %>%
+  drop_na(lat, long) %>%
+  st_as_sf(coords = c("long", "lat"), crs = 4326)
+
+roads_projected <- st_transform(bike_network, 2249)
+crashes_projected <- st_transform(bike_crashes, 2249)
+
+nearest_road_indices <- st_nearest_feature(crashes_projected, roads_projected)
+
+road_counts <- table(nearest_road_indices)
+bike_network$crash_count <- 0
+bike_network$crash_count[as.numeric(names(road_counts))] <- as.numeric(road_counts)
+
+# sorted from most dangerous (top of legend) to safest (bottom of legend)
+safety_order <- c(
+  "SLM",        # Shared Lane Markings (Zero protection, full mixing)
+  "BL-PEAKBUS", # Bike Lane/Peak Hour Bus Lane (High-speed heavy vehicle mixing)
+  "CFBS",       # Contraflow Bike Street (Shared space with opposing traffic)
+  "BLSL",       # Bike Lane/Shared Lane Hybrid (Inconsistent protection)
+  "SBLSL",      # Separated Bike Lane/Shared Lane Hybrid (Gaps in protection)
+  "SLMTC",      # Traffic-Calmed Local Street with Shared Lane Markings
+  "CFBL",       # Contraflow Bike Lane (Painted-only, high conflict risk)
+  "BL",         # Bike Lane (Standard painted lane, door-zone risk)
+  "BFBL",       # Buffered Bike Lane (Paint buffer, but no physical barrier)
+  "SBLBL",      # Separated Bike Lane/Bike Lane Hybrid
+  "SBL",        # Separated Bike Lane (Standard flex-post or curb)
+  "CFSBL",      # Contraflow Separated Bike Lane (High protection)
+  "SUPN",       # Shared Use Path - Natural Surface (Safe from cars, but slip risk)
+  "SUPM",       # Shared Use Path - Minor
+  "SUP",        # Shared Use Path (Fully off-street)
+  "WALK",       # Walkway
+  "PED"         # Pedestrian Zone (Lowest vehicle interaction)
+)
+
+bike_network$ExisFacil <- factor(bike_network$ExisFacil, levels = safety_order)
+
+
+pal <- colorFactor(
+  palette = c("#e41a1c", "#6250FF", "#00A719"),
+  domain = bike_network$ExisFacil
+)
+
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+
+  addPolylines(
+    data = bike_network,
+    color = ~pal(ExisFacil),
+    weight = 3,
+    opacity = 1,
+    label = ~paste0("Street: ", STREET_NAM, " | Crashes: ", crash_count),
+    group = "Infrastructure"
+  ) %>%
+
+  addHeatmap(
+    data = bike_crashes,
+    lng = ~st_coordinates(bike_crashes)[,1],
+    lat = ~st_coordinates(bike_crashes)[,2],
+    gradient = c(
+    '0.4' = 'darkblue',
+    '0.6' = 'blue',
+    '0.7' = 'yellow', 
+    '0.8' = 'orange', 
+    '1.0' = 'red'
+    ),
+    blur = 15,
+    max = 0.11,
+    radius = 11,
+    group = "Crash Hotspots"
+  ) %>%
+
+  addLayersControl(
+    overlayGroups = c("Infrastructure", "Crash Hotspots"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  addLegend(
+    pal = pal,
+    values = bike_network$ExisFacil,
+    title = "Road Category",
+    position = "bottomright"
+  )
+```
