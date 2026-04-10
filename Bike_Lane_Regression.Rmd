@@ -8,9 +8,230 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(readr)
-library(leaflet)
 library(gplots)
 library(gridExtra)
 library(dplyr)
 library(ggplot2)
+```
+
+Importing and tidying Vision Zero fatality and injury data
+```{r}
+vision_zero_fatality <- read_csv("C:/Users/benmi/Downloads/vision_zero_fatality.csv", 
+    col_types = cols(date_time = col_datetime(format = "%Y-%m-%d %H:%M:%S +%z"), 
+        mode_type = col_factor(levels = c("bike", 
+            "ped", "mv")), location_type = col_factor(levels = c("Street", 
+            "Intersection", "Other")))) |>
+  filter(mode_type=="bike" & !is.na(street)) |>
+  mutate(num_fatalities=1) |>
+  group_by(street) |>
+  summarize(sum(num_fatalities)) |>
+  rename("num_fatalities"="sum(num_fatalities)") |>
+  arrange(desc(num_fatalities)) |>
+  rename(full_street_name=street)
+
+vision_zero_crash <- read_csv("C:/Users/benmi/Downloads/vision_zero_crash.csv", 
+    col_types = cols(dispatch_ts = col_datetime(format = "%Y-%m-%d %H:%M:%S+%z"), 
+        mode_type = col_factor(levels = c("bike", 
+            "ped", "mv")), location_type = col_factor(levels = c("Street", 
+            "Intersection", "Other")))) |>
+  filter(mode_type=="bike" & !is.na(street)) |>
+  mutate(num_crashes=1) |>
+  group_by(street) |>
+  summarize(sum(num_crashes)) |>
+  rename("num_crashes"="sum(num_crashes)") |>
+  arrange(desc(num_crashes)) |>
+  rename(full_street_name=street)
+```
+
+Creating dictionary for street names based on address data for converting abbreviations to full names, and later joining datasets with different name formatting.
+```{r}
+Street_Name_Dict <- read_csv("C:/Users/benmi/Downloads/SAM_Addresses.csv", show_col_types = FALSE) |>
+  select(c(1:2, 13, 16, 18, 21)) |>
+  janitor::clean_names() |>
+  mutate(fuller_street_name = paste(street_body, street_full_suffix, sep=" ")) |>
+  mutate(full_street_name = toupper(full_street_name)) |>
+  select(c(3,7)) |>
+  distinct()
+```
+
+Importing and tidying data about Boston streets and their corresponding bike lanes
+```{r}
+boston_streets <- read_csv("C:/Users/benmi/Downloads/existing_bike_network_2024.csv", 
+     col_types = cols(ExisFacil = col_factor(levels = c(
+#       "SBLBL", "PED", "CFSBL", "SBLSL", "BFBL", "WALK", "BLSL", "CFBS", "CFBL",
+#       "SBL", "SLM", "BL", "SUP", "SUPM", "BL_PEAKBUS", "SMLTC", "SUPN")))) |>
+       "SLM", "BL_PEAKBUS", "CFBS", "BLSL", "SBLSL", "SMLTC", "CFBL", "BL",
+       "BFBL", "SBLBL", "SBL", "CFSBL", "SUPN", "SUPM", "SUP", "WALK", "PED"
+     )))) |>
+  janitor::clean_names() |>
+  rename(fuller_street_name=street_nam) |>
+  select(1:2, 7:8) |>
+  group_by(fuller_street_name, exis_facil) |>
+  summarize(install_dat=mean(install_dat))
+
+
+facil_count <- existing_bike_network_2024 <- read_csv("C:/Users/benmi/Downloads/existing_bike_network_2024.csv", 
+    col_types = cols_only(ExisFacil = col_guess())) |>
+  janitor::clean_names() |>
+  mutate(count=1) |>
+  group_by(exis_facil) |>
+  summarize(count=sum(count))
+  
+
+boston_bike_crashes <- boston_streets |>
+  left_join(Street_Name_Dict, by=("fuller_street_name"="fuller_street_name"), relationship="many-to-many") |>
+  left_join(vision_zero_crash, by=("full_street_name"="full_street_name")) |>
+  left_join(vision_zero_fatality, by=("full_street_name"="full_street_name")) |>
+  rename(num_injuries=num_crashes) |>
+  rename(street=fuller_street_name, install_date=install_dat) |>
+  filter(!is.na(street) & !is.na(full_street_name)) |>
+  mutate(num_injuries = replace(num_injuries, is.na(num_injuries), 0)) |>
+  mutate(num_fatalities = replace(num_fatalities, is.na(num_fatalities), 0)) |>
+  mutate(sum_crashes = num_injuries+num_fatalities) |>
+  mutate(sum_crashes = replace(sum_crashes, is.na(sum_crashes), 0)) |>
+  select(-4)
+```
+
+Manipulating data the same way to get data about motor vehicle crashes to compare to the bike crash data
+```{r}
+vision_zero_fatality_mv <- read_csv("C:/Users/benmi/Downloads/vision_zero_fatality.csv", 
+    col_types = cols(date_time = col_datetime(format = "%Y-%m-%d %H:%M:%S +%z"), 
+        mode_type = col_factor(levels = c("bike", 
+            "ped", "mv")), location_type = col_factor(levels = c("Street", 
+            "Intersection", "Other")))) |>
+  filter(mode_type=="mv" & !is.na(street)) |>
+  mutate(num_fatalities=1) |>
+  group_by(street) |>
+  summarize(sum(num_fatalities)) |>
+  rename("num_fatalities"="sum(num_fatalities)") |>
+  arrange(desc(num_fatalities)) |>
+  rename(full_street_name=street)
+
+vision_zero_crash_mv <- read_csv("C:/Users/benmi/Downloads/vision_zero_crash.csv", 
+    col_types = cols(dispatch_ts = col_datetime(format = "%Y-%m-%d %H:%M:%S+%z"), 
+        mode_type = col_factor(levels = c("bike", 
+            "ped", "mv")), location_type = col_factor(levels = c("Street", 
+            "Intersection", "Other")))) |>
+  filter(mode_type=="mv" & !is.na(street)) |>
+  mutate(num_crashes=1) |>
+  group_by(street) |>
+  summarize(sum(num_crashes)) |>
+  rename("num_crashes"="sum(num_crashes)") |>
+  arrange(desc(num_crashes)) |>
+  rename(full_street_name=street)
+
+boston_mv_crashes <- boston_streets |>
+  left_join(Street_Name_Dict, by=("fuller_street_name"="fuller_street_name"), relationship="many-to-many") |>
+  left_join(vision_zero_crash_mv, by=("full_street_name"="full_street_name")) |>
+  left_join(vision_zero_fatality_mv, by=("full_street_name"="full_street_name")) |>
+  rename(num_injuries=num_crashes) |>
+  rename(street=fuller_street_name, install_date=install_dat) |>
+  filter(!is.na(street) & !is.na(full_street_name)) |>
+  mutate(num_injuries = replace(num_injuries, is.na(num_injuries), 0)) |>
+  mutate(num_fatalities = replace(num_fatalities, is.na(num_fatalities), 0)) |>
+  mutate(sum_crashes = num_injuries+num_fatalities) |>
+  mutate(sum_crashes = replace(sum_crashes, is.na(sum_crashes), 0)) |>
+  select(-4) |>
+  group_by(exis_facil) |>
+  summarize(num_injuries=sum(num_injuries),
+            num_fatalities=sum(num_fatalities),
+            sum_crashes=sum(sum_crashes)) |>
+  filter(!is.na(exis_facil)) |>
+  mutate(facil_id = c(1:14)) |>
+  mutate(num_fatalities=replace(num_fatalities, num_fatalities==0, NA)) |>
+  left_join(facil_count, by=("exis_facil"="exis_facil")) |>
+  mutate(crash_proportion_mv = sum_crashes/count) |>
+  arrange(desc(crash_proportion_mv)) |>
+  select(1,7)
+```
+
+Rearranging bike crash and street data to get the proportion of bike crashes per the number of the type of facility, and organizing the data
+```{r}
+crashes_by_facility <- boston_bike_crashes |>
+  group_by(exis_facil) |>
+  summarize(num_injuries=sum(num_injuries),
+            num_fatalities=sum(num_fatalities),
+            sum_crashes=sum(sum_crashes)) |>
+  filter(!is.na(exis_facil)) |>
+  mutate(facil_id = c(1:14)) |>
+  mutate(num_fatalities=replace(num_fatalities, num_fatalities==0, NA)) |>
+  left_join(facil_count, by=("exis_facil"="exis_facil")) |>
+  mutate(crash_proportion = sum_crashes/count) |>
+  arrange(desc(crash_proportion)) |>
+  left_join(boston_mv_crashes, by=("exis_facil"="exis_facil"))
+```
+
+Creating a dictionary/codebook for facility types, their IDs, and what they actually represent
+```{r}
+facilities <- c("Separated Bike Lane on One Side, Bike Lane on Other Side",
+                "Pedestrianized Street", "Contraflow Separated Bike Lane",
+                "Separated Bike Lane on One Side, Shared Lane on Other Side",
+                "Buffered Bus Lane", "Walkway",
+                "Bike Lane on One Side, Shared Lane on Other Side", "Unclear",
+                "Contraflow Bike Lane", "Separated Bike Lane",
+                "Shared Lane Markings or Shared Bus Lane", "Bike Lane",
+                "Shared Use Path", "Minor Shared Use Path")
+
+facility_dict <- crashes_by_facility |>
+  select(5,1) |>
+  mutate(exis_facil_long=facilities)
+```
+
+Displaying the codebook
+```{r}
+knitr::kable(facility_dict, caption="Codebook for Bike Facility IDs, Ordered by Number of Crashes (Decreasing)")
+```
+
+Creating and displaying a linear model and graph of the proportions of crashes at each facility, by ID
+```{r}
+crash_model <- lm(crash_proportion~1+facil_id, data=crashes_by_facility)
+
+ggplot(crashes_by_facility, aes(x=facil_id, y=crash_proportion)) +
+  geom_point() +
+  geom_smooth(method="lm", formula=y~1+x, se=FALSE) +
+  labs(title="Bicycle Facility vs Proportion of Crashes", x="Bicycle Facility ID", y="Total Bike Crashes Per Facility Type Count")
+```
+
+Creating and displaying a linear model and graph of the ID
+```{r}
+crash_model <- lm(crash_proportion~1+facil_id, data=crashes_by_facility)
+
+ggplot(crashes_by_facility, aes(x=facil_id, y=crash_proportion_mv)) +
+  geom_point() +
+  geom_point(aes(y=num_fatalities-1), color="red", size=3) +
+  geom_smooth(method="lm", formula=y~1+x, se=FALSE) +
+  labs(title="MV Facility vs Number of Crashes", x="Bicycle Facility ID", y="Total MV Crashes Per Facility Type Count", subtitle="red dots on facilities on which a bike fatality has occured")
+```
+
+Creating and displaying a residual and qq plot of the linear model
+```{r}
+residual_plot <- ggplot(crash_model, aes(crash_model$fitted.values, y=crash_model$residuals)) +
+  geom_point() +
+  geom_hline(yintercept=0) +
+  labs(title="Residual Plot of Linear Model of Bike Crashes by Facility",
+       x="Fitted Value", y="Residual")
+
+qq_plot <- ggplot(crash_model, aes(sample=crash_model$residuals)) +
+  geom_qq() +
+  labs(title="Q-Q Plot of Residuals of Linear Model", x="Theoretical", y="Sample")
+
+grid.arrange(residual_plot, qq_plot, nrow=2)
+```
+
+
+Creating and displaying a residual and qq plot of a second order  model
+```{r}
+crash_model_2 <- lm(crash_proportion~1+poly(facil_id,2), data=crashes_by_facility)
+
+residual_plot <- ggplot(crash_model_2, aes(crash_model_2$fitted.values, y=crash_model_2$residuals)) +
+  geom_point() +
+  geom_hline(yintercept=0) +
+  labs(title="Residual Plot of Linear Model of Bike Crashes by Facility",
+       x="Fitted Value", y="Residual")
+
+qq_plot <- ggplot(crash_model_2, aes(sample=crash_model_2$residuals)) +
+  geom_qq() +
+  labs(title="Q-Q Plot of Residuals of Linear Model", x="Theoretical", y="Sample")
+
+grid.arrange(residual_plot, qq_plot, nrow=2)
 ```
