@@ -119,3 +119,133 @@ leaflet() %>%
     position = "bottomright"
   )
 ```
+
+According to [this article by Boston Magazine ](https://www.bostonmagazine.com/news/2017/03/01/boston-bike-traffic-data/#:~:text=Massachusetts%20Ave.,of%20Columbus%20Avenue%20%E2%80%94%20797%20bicyclists) which recorded the busiest cycling roads in Boston, the top ten Boston roads with the most cyclists are
+
+1. Massachusetts Ave. Bridge, south of Back Street — 3,081 bicyclists
+
+2. BU Bridge, north of Commonwealth Avenue — 1,957 bicyclists
+
+3. Commonwealth Avenue, west of Silber Way — 1,571 bicyclists
+
+4. Southwest Corridor Bicycle Path, south of Heath Street — 1,554 bicyclists
+
+5. Longwood Avenue, east of Pilgrim Road — 1,348 bicyclists
+
+6. North Harvard Street, south of Soldiers Field Road — 1,320 bicyclists
+
+7. Columbus Avenue, west of Massachusetts Avenue — 1,314 bicyclists
+
+8. Brighton Avenue, east of St. Lukes Road — 1,063 bicyclists
+
+9. Columbus Avenue, west of Holyoke Street — 825 bicyclists
+
+10. Massachusetts Avenue, south of Columbus Avenue — 797 bicyclists
+
+```{r}
+busy_street_names <- c(
+  "Massachusetts Avenue", "Commonwealth Avenue", "Columbus Avenue", 
+  "Brighton Avenue", "North Harvard Street", "Longwood Avenue", 
+  "Boston University Bridge", "Southwest Corridor"
+)
+busy_road_stats <- bike_network %>%
+  as_tibble() %>% 
+  filter(STREET_NAM %in% busy_street_names) %>%
+  group_by(STREET_NAM) %>%
+  summarize(total_crashes = sum(crash_count, na.rm = TRUE)) %>%
+  arrange(desc(total_crashes))
+
+ggplot(busy_road_stats, aes(x = reorder(STREET_NAM, total_crashes), y = total_crashes)) +
+  geom_col(fill = "blue") +
+  coord_flip() +
+  labs(
+    title = "Total Bike Crashes on Boston's Busiest Cycling Roads",
+    subtitle = "Based on Vision Zero Crash Data and Boston Magazine's Top 10 List",
+    x = "Street Name",
+    y = "Number of Crashes"
+  ) +
+  theme_minimal()
+
+```
+```{r}
+traffic_counts <- tibble(
+  STREET_NAM = c("Massachusetts Avenue", "Boston University Bridge", "Commonwealth Avenue", 
+                 "Southwest Corridor", "Longwood Avenue", "North Harvard Street", 
+                 "Columbus Avenue", "Brighton Avenue"),
+  daily_bikers = c(3878, 1957, 1571, 1554, 1348, 1320, 2139, 1063)
+)
+
+normalized_stats <- bike_network %>%
+  as_tibble() %>%
+  filter(STREET_NAM %in% traffic_counts$STREET_NAM) %>%
+  group_by(STREET_NAM, ExisFacil) %>%
+  summarize(total_crashes = sum(crash_count, na.rm = TRUE), .groups = "drop") %>%
+  left_join(traffic_counts, by = "STREET_NAM") %>%
+  mutate(crash_rate = (total_crashes / daily_bikers) * 100)
+
+ggplot(normalized_stats, aes(x = reorder(STREET_NAM, crash_rate, sum), 
+                             y = crash_rate, 
+                             fill = ExisFacil)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_viridis_d() +
+  labs(
+    title = "Bike Crash Rate on Boston's Busiest Cycling Roads",
+    subtitle = "Normalized: (Total Crashes / Daily Bicyclists) * 100",
+    x = "Street Name",
+    y = "Total Crashes Recorded / Daily Riders",
+    fill = "Bike Infrastructure Type"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.justification = "left",
+    legend.box.just = "left",
+    legend.text = element_text(size = 8),
+    legend.title = element_text(face = "bold", size = 9)
+  )
+```
+
+```{r, fig.width=10, fig.height=6, dpi=300}
+normalized_stats <- normalized_stats %>%
+  mutate(ExisFacil = fct_recode(ExisFacil,
+    "Shared Lane Markings" = "SLM",
+    "Peak Hour Bus/Bike Lane" = "BL-PEAKBUS",
+    "Contraflow Bike Street" = "CFBS",
+    "Hybrid Shared Lane" = "BLSL",
+    "Separated/Shared Hybrid" = "SBLSL",
+    "Traffic-Calmed Shared Lane" = "SLMTC",
+    "Contraflow Bike Lane" = "CFBL",
+    "Standard Bike Lane" = "BL",
+    "Buffered Bike Lane" = "BFBL",
+    "Separated/Standard Hybrid" = "SBLBL",
+    "Separated Bike Lane" = "SBL",
+    "Contraflow Separated Lane" = "CFSBL",
+    "Natural Shared Use Path" = "SUPN",
+    "Minor Shared Use Path" = "SUPM",
+    "Shared Use Path" = "SUP",
+    "Walkway" = "WALK",
+    "Pedestrian Zone" = "PED"
+  ))
+
+ggplot(normalized_stats, aes(x = reorder(STREET_NAM, crash_rate, sum), 
+                             y = crash_rate, 
+                             fill = ExisFacil)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_viridis_d() + 
+  labs(
+    title = "Bike Crash Rate on Busiest Boston Roads",
+    subtitle = "Normalized by Number of Daily Bicyclists (Boston Magazine)",
+    x = "Street Name",
+    y = "Total Crashes per 100 Daily Bikers",
+    fill = "Bike Infrastructure Type"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        legend.text = element_text(size = 8)) +
+  guides(fill = guide_legend(ncol = 4))
+```
+
+```{r}
+```
