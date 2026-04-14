@@ -1,0 +1,117 @@
+---
+title: "MV_Traffic_vis"
+author: "Ben Meyer"
+date: "2026-04-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(readxl)
+library(dplyr)
+library(janitor)
+library(leaflet)
+library(tidyverse)
+```
+
+Importing and tidying traffic data
+```{r}
+traffic_data <- read_excel("C:/Users/benmi/Downloads/tcds_list.xlsx") |>
+  clean_names() |>
+  filter(category=="Volume") |>
+  group_by(on, latest_date) |>
+  summarize(volume=mean(latest), latitude=mean(latitude), longitude=mean(longitude)) |>
+  group_by(on) |>
+  filter(latest_date==max(latest_date)) |>
+  group_by() |>
+  rename(full_street_name=on)
+```
+
+Making spatial visualization of traffic per road
+```{r}
+traffic_plot_data <- traffic_data |>
+  mutate(weight=volume/max(volume)*50)
+
+leaflet(data=traffic_plot_data) |>
+  addTiles() |>
+  addCircles(
+    lng=~longitude,
+    lat=~latitude,
+    label=~volume,
+    weight=~weight
+  )
+```
+
+Loading in crash data from vision zero
+```{r}
+vision_zero_fatality <- read_csv("C:/Users/benmi/Downloads/vision_zero_fatality.csv", 
+    col_types = cols(date_time = col_datetime(format = "%Y-%m-%d %H:%M:%S +%z"), 
+        mode_type = col_factor(levels = c("bike", 
+            "ped", "mv")), location_type = col_factor(levels = c("Street", 
+            "Intersection", "Other")))) |>
+  filter(mode_type=="bike" & !is.na(street)) |>
+  mutate(num_fatalities=1) |>
+  group_by(street) |>
+  summarize(sum(num_fatalities)) |>
+  rename("num_fatalities"="sum(num_fatalities)") |>
+  arrange(desc(num_fatalities)) |>
+  rename(full_street_name=street)
+
+vision_zero_injury <- read_csv("C:/Users/benmi/Downloads/vision_zero_crash.csv", 
+    col_types = cols(dispatch_ts = col_datetime(format = "%Y-%m-%d %H:%M:%S+%z"), 
+        mode_type = col_factor(levels = c("bike", 
+            "ped", "mv")), location_type = col_factor(levels = c("Street", 
+            "Intersection", "Other")))) |>
+  filter(mode_type=="bike" & !is.na(street)) |>
+  mutate(num_crashes=1) |>
+  group_by(street) |>
+  summarize(sum(num_crashes)) |>
+  rename("num_crashes"="sum(num_crashes)") |>
+  arrange(desc(num_crashes)) |>
+  rename(full_street_name=street,
+         num_injuries=num_crashes)
+```
+
+Making function to swap between street abbreviations and full names
+```{r}
+roadway_titles = tibble(
+  abbreviation = c("HWY", "RD", "ST", "AVE", "WHRF", "DR", "BRG", "SQ", "PKWY", "BLVD", "TER", "PLZ"),
+  full = c("HIGHWAY", "ROAD", "STREET", "AVENUE", "WHARF", "DRIVE", "BRIDGE", "SQUARE", "PARKWAY", "BOULEVARD", "TERRACE", 
+           "PLAZA")
+)
+
+abbreviate_roads <- function(name) {
+  for(i in 1:length(roadway_titles$full)) {
+    name <- gsub(roadway_titles$full[i], roadway_titles$abbreviation[i], name)
+  }
+  return(name)
+}
+```
+
+Combining crash data w/ traffic data
+```{r}
+abbreviated_traffic_data <- traffic_data |>
+  mutate(full_street_name = abbreviate_roads(full_street_name))
+
+vision_zero_crash <- vision_zero_injury |>
+  full_join(vision_zero_fatality, by=("full_street_name"="full_street_name")) |>
+  mutate(num_fatalities=ifelse(is.na(num_fatalities), 0, num_fatalities),
+         sum_crashes=num_injuries+num_fatalities) |>
+  inner_join(abbreviated_traffic_data, by=("full_street_name"="full_street_name")) |>
+  select(-latest_date) |>
+  mutate(bike_crashes_per_car = sum_crashes/volume)
+```
+
+Visualization of combined crash/traffic data
+```{r}
+crash_plot_data <- vision_zero_crash |>
+  mutate(radius=bike_crashes_per_car/max(bike_crashes_per_car)*50)
+
+leaflet(data=crash_plot_data) |>
+  addTiles() |>
+  addCircles(
+    lng=~longitude,
+    lat=~latitude,
+    label=~bike_crashes_per_car,
+    weight=~radius
+  )
+```

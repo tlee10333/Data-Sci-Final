@@ -16,7 +16,7 @@ library(ggplot2)
 
 Importing and tidying Vision Zero fatality and injury data
 ```{r}
-vision_zero_fatality <- read_csv("C:/Users/benmi/Downloads/vision_zero_fatality.csv", 
+vision_zero_fatality <- read_csv("/home/bmeyer/Downloads/dat-sci-final-datasets/vision_zero_fatality.csv", 
     col_types = cols(date_time = col_datetime(format = "%Y-%m-%d %H:%M:%S +%z"), 
         mode_type = col_factor(levels = c("bike", 
             "ped", "mv")), location_type = col_factor(levels = c("Street", 
@@ -29,7 +29,7 @@ vision_zero_fatality <- read_csv("C:/Users/benmi/Downloads/vision_zero_fatality.
   arrange(desc(num_fatalities)) |>
   rename(full_street_name=street)
 
-vision_zero_crash <- read_csv("C:/Users/benmi/Downloads/vision_zero_crash.csv", 
+vision_zero_crash <- read_csv("/home/bmeyer/Downloads/dat-sci-final-datasets/vision_zero_crash.csv", 
     col_types = cols(dispatch_ts = col_datetime(format = "%Y-%m-%d %H:%M:%S+%z"), 
         mode_type = col_factor(levels = c("bike", 
             "ped", "mv")), location_type = col_factor(levels = c("Street", 
@@ -45,7 +45,7 @@ vision_zero_crash <- read_csv("C:/Users/benmi/Downloads/vision_zero_crash.csv",
 
 Creating dictionary for street names based on address data for converting abbreviations to full names, and later joining datasets with different name formatting.
 ```{r}
-Street_Name_Dict <- read_csv("C:/Users/benmi/Downloads/SAM_Addresses.csv", show_col_types = FALSE) |>
+Street_Name_Dict <- read_csv("/home/bmeyer/Downloads/dat-sci-final-datasets/SAM_Addresses.csv", show_col_types = FALSE) |>
   select(c(1:2, 13, 16, 18, 21)) |>
   janitor::clean_names() |>
   mutate(fuller_street_name = paste(street_body, street_full_suffix, sep=" ")) |>
@@ -56,7 +56,7 @@ Street_Name_Dict <- read_csv("C:/Users/benmi/Downloads/SAM_Addresses.csv", show_
 
 Importing and tidying data about Boston streets and their corresponding bike lanes
 ```{r}
-boston_streets <- read_csv("C:/Users/benmi/Downloads/existing_bike_network_2024.csv", 
+boston_streets <- read_csv("/home/bmeyer/Downloads/dat-sci-final-datasets/existing_bike_network_2024.csv", 
      col_types = cols(ExisFacil = col_factor(levels = c(
 #       "SBLBL", "PED", "CFSBL", "SBLSL", "BFBL", "WALK", "BLSL", "CFBS", "CFBL",
 #       "SBL", "SLM", "BL", "SUP", "SUPM", "BL_PEAKBUS", "SMLTC", "SUPN")))) |>
@@ -70,7 +70,7 @@ boston_streets <- read_csv("C:/Users/benmi/Downloads/existing_bike_network_2024.
   summarize(install_dat=mean(install_dat))
 
 
-facil_count <- existing_bike_network_2024 <- read_csv("C:/Users/benmi/Downloads/existing_bike_network_2024.csv", 
+facil_count <- existing_bike_network_2024 <- read_csv("/home/bmeyer/Downloads/dat-sci-final-datasets/existing_bike_network_2024.csv", 
     col_types = cols_only(ExisFacil = col_guess())) |>
   janitor::clean_names() |>
   mutate(count=1) |>
@@ -94,7 +94,7 @@ boston_bike_crashes <- boston_streets |>
 
 Manipulating data the same way to get data about motor vehicle crashes to compare to the bike crash data
 ```{r}
-vision_zero_fatality_mv <- read_csv("C:/Users/benmi/Downloads/vision_zero_fatality.csv", 
+vision_zero_fatality_mv <- read_csv("/home/bmeyer/Downloads/dat-sci-final-datasets/vision_zero_fatality.csv", 
     col_types = cols(date_time = col_datetime(format = "%Y-%m-%d %H:%M:%S +%z"), 
         mode_type = col_factor(levels = c("bike", 
             "ped", "mv")), location_type = col_factor(levels = c("Street", 
@@ -107,7 +107,7 @@ vision_zero_fatality_mv <- read_csv("C:/Users/benmi/Downloads/vision_zero_fatali
   arrange(desc(num_fatalities)) |>
   rename(full_street_name=street)
 
-vision_zero_crash_mv <- read_csv("C:/Users/benmi/Downloads/vision_zero_crash.csv", 
+vision_zero_crash_mv <- read_csv("/home/bmeyer/Downloads/dat-sci-final-datasets/vision_zero_crash.csv", 
     col_types = cols(dispatch_ts = col_datetime(format = "%Y-%m-%d %H:%M:%S+%z"), 
         mode_type = col_factor(levels = c("bike", 
             "ped", "mv")), location_type = col_factor(levels = c("Street", 
@@ -179,7 +179,7 @@ facility_dict <- crashes_by_facility |>
 
 Displaying the codebook
 ```{r}
-knitr::kable(facility_dict, caption="Codebook for Bike Facility IDs, Ordered by Number of Crashes (Decreasing)")
+#knitr::kable(facility_dict, caption="Codebook for Bike Facility IDs, Ordered by Number of Crashes (Decreasing)")
 ```
 
 Creating and displaying a linear model and graph of the proportions of crashes at each facility, by ID
