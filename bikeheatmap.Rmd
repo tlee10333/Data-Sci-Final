@@ -29,6 +29,10 @@ boston_crashes_raw <- read.csv("visionzerocrash.csv")
 bike_network <- st_read("existing_bike_network_2024.geojson") %>% 
   st_transform(4326) # Ensure WGS84 for Leaflet
 head(bike_network)
+
+bike_network_2022 <- st_read("existing_bike_network_2022.geojson") %>% 
+  st_transform(4326) # Ensure WGS84 for Leaflet
+head(bike_network_2022)
 ```
 
 ```{r}
