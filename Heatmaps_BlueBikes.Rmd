@@ -1,0 +1,580 @@
+---
+title: "Data Science Final Project"
+author: "Amanda Chang, Ben Meyer, Trinity Lee"
+output: html_notebook
+---
+
+
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(leaflet)
+library(shiny)
+library(leaflet)
+library(dplyr)
+library(readr)
+library(lubridate)
+library(glue)
+```
+
+Load Bike Accidents Data & Add Seasons 
+```{r}
+data <- read_csv("Bike_Crash_Data_Vision_Zero.csv")
+
+bike <- data |>
+  filter(mode_type == "bike") |>
+  mutate(
+    dispatch_ts = ymd_hms(dispatch_ts),
+    date = as_date(dispatch_ts),
+    year = year(dispatch_ts),
+    season = case_when(
+            month(date) %in% c(12, 1, 2) ~ "Winter",
+            month(date) %in% c(3, 4, 5) ~ "Spring",
+            month(date) %in% c(6, 7, 8) ~ "Summer",
+            month(date) %in% c(9, 10, 11) ~ "Fall"
+          ),
+    time_numeric = hour(dispatch_ts) )
+
+```
+
+Shiny Slider of Bike Accidents
+```{r}
+ui <- fluidPage(
+  titlePanel("Bike Crashes by Time of Day"),
+  
+  sidebarLayout(sidebarPanel(sliderInput(
+        "time",
+        "Show crashes at hours:",
+        min = 0,
+        max = 24,
+        value = 12,
+        step = 1
+      )),
+    mainPanel(
+      leafletOutput("map")
+    )))
+
+server <- function(input, output, session) {
+  filtered_data <- reactive({
+    bike |>
+      filter(time_numeric == input$time)
+  })
+  
+  # Base map
+  output$map <- renderLeaflet({
+    leaflet(bike) |>
+      addTiles()  |>
+      setView(lng = mean(bike$long, na.rm = TRUE),
+              lat = mean(bike$lat, na.rm = TRUE),
+              zoom = 12)
+  })
+  
+  # Update points when slider moves
+  observe({
+    leafletProxy("map", data = filtered_data()) |>
+      clearMarkers() |>
+      addCircleMarkers(
+        lng = ~long,
+        lat = ~lat,
+        color = "blue",
+        radius = 4,
+        stroke = FALSE,
+        fillOpacity = 0.7,
+        popup = ~paste(
+          "Year:", year, "<br>",
+          "Mode:", mode_type, "<br>",
+          "Street:", street, "<br>",
+          "Time:", dispatch_ts
+        ))})
+}
+shinyApp(ui, server)
+```
+
+Bar charts of Accidents 
+
+```{r}
+ggplot(bike, aes(x = time_numeric, color=season)) +
+  geom_histogram(binwidth=1) +
+  facet_wrap(season ~.)+
+  labs(
+    title = "Distribution of Crash Times",
+    x = "Hour of Day",
+    y = "Number of Crashes"
+  ) +
+  theme_minimal()
+
+ggplot(bike, aes(x = time_numeric)) +
+  geom_histogram(binwidth=1) +
+  facet_wrap(year ~.)+
+  labs(
+    title = "Distribution of Crash Times",
+    x = "Hour of Day",
+    y = "Number of Crashes"
+  ) +
+  theme_minimal()
+```
+
+Processing Blue Bikes Data
+```{r}
+#years <- list("2015", "2016", "2017", "2018", "2019", "2020" , "2021", "2022", "2023", "2024", "2025")     
+# Mass processing data
+
+#new_data <- data.frame()
+#for (month in months) {
+#  filename <- glue("blue_bikes_data/{year}_data/{year}{month}-bluebikes-tripdata/{year}{month}-bluebikes-tripdata.csv")
+#  temp_data <- read_csv(filename, col_types = cols(.default = col_character()))
+#  blue_data <- bind_rows(blue_data, temp_data)
+#}
+#write.csv(blue_data, glue("blue_bikes_data/{year}_data.csv"))
+
+
+#for (year in years) {
+#  filename <- glue("blue_bikes_data_trimmed/{year}_data.csv")
+#  temp_data <- read_csv(filename, col_types = cols(.default = col_character()))
+#  new_data <- temp_data |>
+#  select(
+#    starttime,
+#    stoptime,
+#    `start station id`,
+#    `start station name`,
+#    `start station latitude`,
+#    `start station longitude`,
+#    `end station id`,
+#    `end station name`,
+#    `end station latitude`,
+#    `end station longitude`
+#  )
+#  write.csv(new_data, glue("blue_bikes_data_trimmed/trimmed_{year}_data.csv"))
+#}
+#for (year in list("2024", "2025")) {
+#  filename <- glue("blue_bikes_data_trimmed/{year}_data.csv")
+#  temp_data <- read_csv(filename, col_types = cols(.default = col_character()))
+#new_data <- temp_data |>
+#  rename(
+#    starttime = started_at,
+#    stoptime = ended_at,
+#    `start station id` = start_station_id,
+#    `start station name` = start_station_name,
+#    `start station latitude` = start_lat,
+#    `start station longitude` = start_lng,
+#    `end station id` = end_station_id,
+#    `end station name` = end_station_name,
+#    `end station latitude` = end_lat,
+#   `end station longitude` = end_lng
+# ) |>
+# select(
+#    starttime,
+#    stoptime,
+#    `start station id`,
+#    `start station name`,
+#    `start station latitude`,
+#    `start station longitude`,
+#    `end station id`,
+#    `end station name`,
+#    `end station latitude`,
+#    `end station longitude`
+#  )
+#  write.csv(new_data, glue("blue_bikes_data_trimmed/trimmed_{year}_data.csv"))
+#}
+
+```
+
+Group Blue Bikes based on Station Name & Latitude/Longitude and Find Total Trips Per Station
+```{r}
+#years <- list("2015", "2016", "2017", "2018", "2019", "2020" , "2021", "2022", "2023", "2024", "2025")     
+#total_counts <- data.frame(
+#  start_station = character(),
+#  start_lat = numeric(),
+#  start_lng = numeric(),
+#  n = numeric()
+#)
+#
+#for (year in years) {
+#  df <- read_csv(glue("blue_bikes_data_start_trimmed/start_trimmed_{year}_data.csv"))
+#  
+#  temp <- df |>
+#    group_by(start_station, start_lat, start_lng) |>
+#    summarise(n = n(), .groups = "drop")
+#  
+#  total_counts <- bind_rows(total_counts, temp)
+#}
+#
+#total_counts <- total_counts |>
+#  group_by(start_station) |>
+#  summarise(
+#    n = sum(n),  # ← sum counts across years
+#    start_lat = mean(start_lat, na.rm = TRUE),
+#    start_lng = mean(start_lng, na.rm = TRUE),
+#    .groups = "drop"
+#  )
+#
+#
+```
+  
+  
+Import Total Trip Count Per Start Station with Coordinations and Filter Out Stations Outside of Boston
+
+```{r}
+
+total_counts <- read.csv("total_counts_with_coord.csv")
+total_counts <- head(total_counts, -1) |>
+  #only in boston
+  filter((42.237210 < start_lat & start_lat < 42.400739) & 
+         ( -71.186470 < start_lng & start_lng < -70.985085)) |>
+  
+  #cambridge
+  filter(!(
+    start_lat > 42.355417 & start_lat < 42.425723 &
+    start_lng > -71.114138 & start_lng < -71.088989
+  )) |>
+  
+  #somerville
+  #42.374595, -71.168457
+  #42.432250, -71.098786
+  filter(!(
+    start_lat > 42.374595 & start_lat < 42.432250 &
+    start_lng > -71.168457 & start_lng < -71.098786
+  )) |>
+
+  #harvard
+  # 42.370632, -71.124589
+  # 42.377532, -71.115612
+  filter(!(
+    start_lat > 42.370632 & start_lat < 42.377532 &
+    start_lng >  -71.124589 & start_lng < -71.115612
+  )) |>
+
+  #42.364358, -71.117201
+  #42.371603, -71.113690
+  filter(!(
+    start_lat > 42.364358 & start_lat <42.371603 &
+    start_lng > -71.117201 & start_lng < -71.113690
+  )) |>
+  
+  #42.355546, -71.094754
+  #42.380322, -71.079337
+  filter(!(
+    start_lat >42.355546 & start_lat < 42.380322 &
+    start_lng > -71.094754 & start_lng <  -71.079337
+  )) 
+
+total_counts <- total_counts |>
+  filter(!is.na(start_lat), !is.na(start_lng), !is.na(n))
+```
+
+
+
+General Heatmap based on Number of Trips Per Station
+```{r}
+pal <- colorNumeric(
+  palette = "YlOrRd",
+  domain = total_counts$n
+)
+
+leaflet(total_counts) |>
+  addTiles() |>
+  addCircleMarkers(
+    lat = ~start_lat,
+    lng = ~start_lng,
+    color = ~pal(n),
+    fillColor = ~pal(n),
+    fillOpacity = 0.8,
+    stroke = TRUE,
+    weight = 1,
+    radius = 7,
+    popup = ~paste0(
+      "<b>", start_station, "</b><br/>",
+      "Count: ", n
+    ),
+    label = ~start_station
+  )|>
+  addLegend(
+    position = "bottomright",
+    pal = pal,
+    values = ~n,
+    title = "Number of Trips Per Station",
+    opacity = 0.8
+    )
+```
+
+
+Bike Accidents Overlayed onto Station Trips
+```{r}
+bike <- bike |>
+  filter(!is.na(lat), !is.na(long))
+
+pal <- colorNumeric(
+  palette = "YlOrRd",
+  domain = total_counts$n
+)
+
+#Station Data
+leaflet()|>
+  addTiles() |>
+  addCircles(
+    data = total_counts,
+    lat = ~start_lat,
+    lng = ~start_lng,
+    radius = ~sqrt(n)/3, #Stations with More Trips Are darler & have larger radius
+    fillColor = ~pal(n),
+    stroke= FALSE,
+    fillOpacity = 0.5,   # lower = more blending
+  ) |>
+  
+  #Accident Data
+    addCircleMarkers(
+    data = bike,
+    lat = ~lat,
+    lng = ~long,
+    radius = 2,
+    color = "blue",
+    stroke= FALSE,
+    fillOpacity = 0.7,
+  ) |>
+  
+  addLegend(
+    position = "bottomright",
+    pal = pal,
+    values = total_counts$n,
+    title = "Number of Blue Bike Trips Per Station",
+    opacity = 0.8
+  )
+
+```
+
+
+Grid View of Trips to Accident Ration Based on Latitude/Longitude
+```{r}
+cell_size <- 0.002 #Grid Cell Size  
+
+acc_grid <- bike |>
+  mutate(
+    lat_bin = floor(lat / cell_size) * cell_size,
+    lng_bin = floor(long / cell_size) * cell_size
+  )
+
+bike_grid <- total_counts |>
+  mutate(
+    lat_bin = floor(start_lat / cell_size) * cell_size,
+    lng_bin = floor(start_lng / cell_size) * cell_size
+  )
+
+# Count accidents per grid cell
+acc_counts <- acc_grid |>
+  group_by(lat_bin, lng_bin) |>
+  summarize(bike = n(), .groups = "drop")
+
+# Count Bike Trips Per Grid
+bike_counts <- bike_grid |>
+  group_by(lat_bin, lng_bin) |>
+  summarize(trips = sum(n), .groups = "drop")  # ← Changed from n() to sum()
+
+grid_data <- full_join(acc_counts, bike_counts,
+                       by = c("lat_bin", "lng_bin")) |>
+  mutate(
+    bike = ifelse(is.na(bike), 0, bike),
+    trips = ifelse(is.na(trips), 0, trips),
+    rate = ifelse(trips == 0, 0, bike / trips)
+  )
+
+#Take out squares with only 1 accident
+grid_data <- grid_data |>
+  filter(bike > 1)
+
+mean(grid_data$bike)
+```
+
+
+```{r}
+#Grid Heatmap Based on Accident to Trips Ratio
+pal <- colorNumeric(
+  palette = "YlOrRd",  # Yellow-Orange-Red
+  domain = grid_data$rate,
+)
+leaflet(grid_data)|>
+  addTiles() |>
+  addRectangles(
+    lng1 = ~lng_bin,
+    lat1 = ~lat_bin,
+    lng2 = ~lng_bin + cell_size,
+    lat2 = ~lat_bin + cell_size,
+    fillColor = ~pal(rate),
+    fillOpacity = 0.7,
+    color = NA,
+    popup = ~paste0(
+      "Accidents: ", bike, "<br>",
+      "Trips: ", trips, "<br>",
+      "Accidents to Trip Ratio: ", round(rate, 5)
+    )
+  ) |>
+  addLegend(
+    pal = pal,
+    values = ~rate,
+    title = "Accidents to Total Trips Ratio"
+  )
+
+#Grid Heatmap Based on Bike Accidents Only
+
+cap_value <- quantile(grid_data$bike, 0.95) # Cap at 95th percentile
+pal <- colorNumeric(
+  palette = "YlOrRd",
+  domain = c(0, cap_value),
+  na.color = "transparent"
+)
+
+leaflet(grid_data)|>
+  addTiles() |>
+  addRectangles(
+    lng1 = ~lng_bin,
+    lat1 = ~lat_bin,
+    lng2 = ~lng_bin + cell_size,
+    lat2 = ~lat_bin + cell_size,
+    fillColor = ~pal(pmin(bike, cap_value)),  
+    fillOpacity = 0.7,
+    color = NA,
+    popup = ~paste0(
+      "Accidents: ", bike, "<br>",
+      "Trips: ", trips, "<br>",
+      "Accidents to Trip Ratio: ", round(rate, 5)
+    )
+  ) |>
+    addLegend(
+    pal = pal,
+    values = ~pmin(bike, cap_value),
+    opacity = 0.7,
+    title = "Accidents per Station(capped at 11+)"
+
+  )
+```
+
+
+
+Merging Amanda's Bike Lanes with My Maps
+
+
+
+```{r, include=FALSE}
+
+library(DT)            # for visualizing data tables 
+library(janitor)       # for automatically renaming variables
+library(ggmap)         # for mapping points on maps
+library(RColorBrewer)  # for color palettes
+library(sf)            # for working with spatial data
+library(gplots)        # for col2hex() function
+library(choroplethr)   # another option to make choropleths
+library(choroplethrMaps)
+library(maps)
+
+boston_crashes_raw <- bike
+
+bike_network <- st_read("existing_bike_network_2024.json") %>% 
+  st_transform(4326) # Ensure WGS84 for Leaflet
+head(bike_network)
+
+bike_network_2022 <- st_read("existing_bike_network_2022.json") %>% 
+  st_transform(4326) # Ensure WGS84 for Leaflet
+head(bike_network_2022)
+```
+
+```{r}
+unique(bike_network$ExisFacil)
+```
+
+```{r}
+bike_crashes <- boston_crashes_raw %>%
+  filter(mode_type == "bike") %>%
+  drop_na(lat, long) %>%
+  st_as_sf(coords = c("long", "lat"), crs = 4326)
+
+roads_projected <- st_transform(bike_network, 2249)
+crashes_projected <- st_transform(bike_crashes, 2249)
+
+nearest_road_indices <- st_nearest_feature(crashes_projected, roads_projected)
+
+road_counts <- table(nearest_road_indices)
+bike_network$crash_count <- 0
+bike_network$crash_count[as.numeric(names(road_counts))] <- as.numeric(road_counts)
+
+# sorted from most dangerous (top of legend) to safest (bottom of legend)
+safety_order <- c(
+  "SLM",        # Shared Lane Markings (Zero protection, full mixing)
+  "BL-PEAKBUS", # Bike Lane/Peak Hour Bus Lane (High-speed heavy vehicle mixing)
+  "CFBS",       # Contraflow Bike Street (Shared space with opposing traffic)
+  "BLSL",       # Bike Lane/Shared Lane Hybrid (Inconsistent protection)
+  "SBLSL",      # Separated Bike Lane/Shared Lane Hybrid (Gaps in protection)
+  "SLMTC",      # Traffic-Calmed Local Street with Shared Lane Markings
+  "CFBL",       # Contraflow Bike Lane (Painted-only, high conflict risk)
+  "BL",         # Bike Lane (Standard painted lane, door-zone risk)
+  "BFBL",       # Buffered Bike Lane (Paint buffer, but no physical barrier)
+  "SBLBL",      # Separated Bike Lane/Bike Lane Hybrid
+  "SBL",        # Separated Bike Lane (Standard flex-post or curb)
+  "CFSBL",      # Contraflow Separated Bike Lane (High protection)
+  "SUPN",       # Shared Use Path - Natural Surface (Safe from cars, but slip risk)
+  "SUPM",       # Shared Use Path - Minor
+  "SUP",        # Shared Use Path (Fully off-street)
+  "WALK",       # Walkway
+  "PED"         # Pedestrian Zone (Lowest vehicle interaction)
+)
+
+bike_network$ExisFacil <- factor(bike_network$ExisFacil, levels = safety_order)
+
+
+```
+
+
+```{r}
+pal1 <- colorFactor(
+  palette = c("#e41a1c", "#6250FF", "#00A719"),
+  domain = bike_network$ExisFacil
+)
+
+pal2 <- colorNumeric(
+  palette = "YlOrRd",  # Yellow-Orange-Red
+  domain = grid_data$bike,
+)
+
+leaflet() %>%
+  
+    addRectangles(
+    data = grid_data,
+    lng1 = ~lng_bin,
+    lat1 = ~lat_bin,
+    lng2 = ~lng_bin + cell_size,
+    lat2 = ~lat_bin + cell_size,
+    fillColor = ~pal2(bike),
+    fillOpacity = 0.7,
+    color = NA,
+    group = "Crash Hotspots Ratio",
+    popup = ~paste0(
+      "Accidents: ", bike, "<br>",
+      "Trips: ", trips, "<br>",
+      "Accidents to Trip Ratio: ", round(rate, 5)
+    )
+  ) %>%
+  
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolylines(
+    data = bike_network,
+    color = ~pal1(ExisFacil),
+    weight = 3,
+    opacity = 1,
+    label = ~paste0("Street: ", STREET_NAM, " | Crashes: ", crash_count),
+    group = "Infrastructure"
+  ) %>%
+
+  
+  addLayersControl(
+    overlayGroups = c("Infrastructure", "Crash Hotspots Ratio"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  
+  addLegend(
+    pal = pal,
+    values = bike_network$ExisFacil,
+    title = "Road Category",
+    position = "bottomright"
+  )
+
+```
+
