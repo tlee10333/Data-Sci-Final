@@ -29,6 +29,9 @@ library(gplots)
 library(choroplethr)  
 library(choroplethrMaps)
 library(maps)
+library(ggthemes)
+library(leaflet.extras)
+library(htmlwidgets) # for amanda's legend
 ```
 
 ## Introduction
@@ -446,7 +449,294 @@ Overall, these visualizations can give the viewer a clear idea as to the sheer v
 
 ## Datasets
 
-In most cities, like the city of Boston, bike infrastructure is not consistent, with different types of bike lane categorizations. For the city of Boston, there was a [dataset](https://experience.arcgis.com/experience/925eb7fd89c24c5f9c07bcc20ee9ea74/) which mapped out the different bike lanes. After analyzing the different types of bike lanes, we drew up a scale based on the qualitative danger level of each type of lane for bicyclists. For example, a shared bike lane with vehicles (no clear demarcation of what is a bike lane versus car lane) would probably pose higher danger levels to bicyclists for crashes with other vehicles given the vicinity of cars compared to a clear and separate bike lane. We overlaid our grid heatmap of accidents with our streetview, and we noticed immediately that certain areas had higher concentration of accidents. The grid view heatmap allowed us to see a lot more easily where accidents were concentrated, and we could now see certain intersections were exceptionally high in terms of accidents.
+In most cities, like the city of Boston, bike infrastructure is not consistent, with different types of bike lane categorizations. For the city of Boston, there was a [dataset](https://experience.arcgis.com/experience/925eb7fd89c24c5f9c07bcc20ee9ea74/) which mapped out the different bike lanes. After analyzing the different types of bike lanes, we drew up a scale based on the qualitative danger level of each type of lane for bicyclists, measured by vehicle exposure. For example, a shared bike lane with vehicles (no clear demarcation of what is a bike lane versus car lane) would probably pose higher danger levels to bicyclists for crashes with other vehicles given the vicinity of cars compared to a clear and separate bike lane. 
+
+```{r, echo=FALSE}
+# sorted from most dangerous (top of legend) to safest (bottom of legend)
+safety_order <- c(
+  "SLM",        # Shared Lane Markings (Zero protection, full mixing)
+  "BL-PEAKBUS", # Bike Lane/Peak Hour Bus Lane (High-speed heavy vehicle mixing)
+  "CFBS",       # Contraflow Bike Lane (typo found in the database)
+  "BLSL",       # Bike Lane/Shared Lane Hybrid (Inconsistent protection)
+  "SBLSL",      # Separated Bike Lane/Shared Lane Hybrid (Gaps in protection)
+  "SLMTC",      # Traffic-Calmed Local Street with Shared Lane Markings
+  "CFBL",       # Contraflow Bike Lane (Painted-only, high conflict risk)
+  "BL",         # Bike Lane (Standard painted lane, door-zone risk)
+  "BFBL",       # Buffered Bike Lane (Paint buffer, but no physical barrier)
+  "SBLBL",      # Separated Bike Lane/Bike Lane Hybrid
+  "SBL",        # Separated Bike Lane (Standard flex-post or curb)
+  "CFSBL",      # Contraflow Separated Bike Lane (High protection)
+  "SUPN",       # Shared Use Path - Natural Surface (Safe from cars, but slip risk)
+  "SUPM",       # Shared Use Path - Minor
+  "SUP",        # Shared Use Path (Fully off-street)
+  "WALK",       # Walkway
+  "PED"         # Pedestrian Zone (Lowest vehicle interaction)
+)
+
+bike_labels <- data.frame(
+  Abbr = safety_order,
+  infra_full_name = c(
+    "Shared Lane Markings",
+    "Bike Lane/Peak Hour Bus Lane",
+    "Contraflow Bike Lane",
+    "Bike Lane Side + Shared Lane Side",
+    "Separated Bike Lane Side + Shared Lane Side",
+    "Traffic-Calmed Local Street",
+    "Contraflow Bike Lane",
+    "Standard Bike Lane",
+    "Buffered Bike Lane",
+    "Separated/Standard Hybrid",
+    "Separated Bike Lane",
+    "Contraflow Separated Bike Lane",
+    "Shared Use Path (Natural)",
+    "Shared Use Path (Minor)",
+    "Shared Use Path (Paved)",
+    "Walkway",
+    "Pedestrianized Street"
+  )
+)
+
+exposure_list <- data.frame(safety_order)
+exposure_list$exposure_metric <- 1:nrow(exposure_list)
+```
+
+```{r, echo=FALSE}
+bike_crashes <- boston_crashes_raw %>%
+   filter(mode_type == "bike") %>%
+   drop_na(lat, long) %>%
+   st_as_sf(coords = c("long", "lat"), crs = 4326)
+
+roads_projected <- st_transform(bike_network, 2249)
+crashes_projected <- st_transform(bike_crashes, 2249)
+
+nearest_indices <- st_nearest_feature(crashes_projected, roads_projected)
+nearest_distances <- st_distance(
+  crashes_projected,
+  roads_projected[nearest_indices, ],
+  by_element = TRUE
+)
+
+# if its within 15 meters then keep it
+threshold_m  <- 15
+
+assigned_indices <- ifelse(
+  as.numeric(nearest_distances) <= threshold_m,
+  nearest_indices,
+  NA  # dont assign roads too far from the road
+)
+
+road_counts <- table(assigned_indices[!is.na(assigned_indices)])
+
+bike_network$crash_count <- 0
+bike_network$crash_count[as.numeric(names(road_counts))] <- as.numeric(road_counts)
+bike_network$ExisFacil <- factor(bike_network$ExisFacil, levels = safety_order, ordered=TRUE)
+bike_network <- bike_network %>%
+  left_join(bike_labels, by = c("ExisFacil" = "Abbr"))
+
+
+danger_colors <- colorRampPalette(c("#e41a1c", "#9B8FFF", "#00A719"))(length(safety_order))
+names(danger_colors) <- safety_order
+
+pal <- colorFactor(
+  palette = danger_colors,
+  levels = safety_order,
+  domain = bike_network$ExisFacil
+)
+
+
+leaflet() %>%
+   addProviderTiles(providers$CartoDB.Positron) %>%
+
+   addPolylines(
+      data = bike_network,
+      color = ~pal(ExisFacil),
+      weight = 3,
+      opacity = 1,
+      label = ~paste0("Street: ", STREET_NAM, " | Crashes: ", crash_count," | Infra: ", infra_full_name),
+      group = "Infrastructure"
+   ) %>%
+  
+  addHeatmap(
+    data = bike_crashes,
+    lng = ~st_coordinates(bike_crashes)[,1],
+    lat = ~st_coordinates(bike_crashes)[,2],
+    gradient = c(
+    '0.4' = 'darkblue',
+    '0.6' = 'blue',
+    '0.7' = 'yellow', 
+    '0.8' = 'orange', 
+    '1.0' = 'red'
+    ),
+    blur = 15,
+    max = 0.11,
+    radius = 11,
+    group = "Crash Hotspots"
+  ) %>%
+  
+  addControl(
+  html = "<div id='infra-legend' style='background: rgba(255, 255, 255, 0.5); 
+                      padding: 10px; 
+                      border: 3px solid rgba(0,0,0,0.2); 
+                      border-radius: 4px; 
+                      text-align: center;
+                      font-family: sans-serif;'>
+            
+            <b style='display: block; margin-bottom: 8px; font-size: 12px;'>Vehicle Exposure</b>
+            
+            <div style='font-size: 10px; font-weight: bold; color: #e41a1c; margin-bottom: 2px;'>MOST</div>
+            
+            <div style='height: 120px; 
+                        width: 18px; 
+                        background: linear-gradient(to bottom, #e41a1c 0%, #6250FF 50%, #00A719 100%); 
+                        margin: 2px auto;
+                        border-radius: 2px;'>
+            </div>
+            
+            <div style='font-size: 10px; font-weight: bold; color: #00A719; margin-top: 2px;'>LEAST</div>
+            
+          </div>",
+  position = "bottomright"
+  ) %>% 
+
+  addLayersControl(
+    overlayGroups = c("Infrastructure", "Crash Hotspots"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  
+  onRender("
+    function(el, x) {
+      var map = this;
+      var legend = document.getElementById('infra-legend');
+      
+      map.on('overlayadd', function(e) {
+        if (e.name === 'Infrastructure') {
+          legend.style.display = 'block';
+        }
+      });
+      
+      map.on('overlayremove', function(e) {
+        if (e.name === 'Infrastructure') {
+          legend.style.display = 'none';
+        }
+      });
+    }
+  ")
+```
+
+Here we have the raw number of crashes for all roads with greater than 20 bicycle accidents in Boston:
+```{r, echo=FALSE}
+dangerous_roads_stats <- bike_network %>%
+  as_tibble() %>% 
+  group_by(STREET_NAM) %>%
+  summarize(total_crashes = sum(crash_count, na.rm = TRUE)) %>%
+  filter(total_crashes > 20) %>% 
+  arrange(desc(total_crashes))
+
+ggplot(dangerous_roads_stats, aes(x = reorder(STREET_NAM, total_crashes), y = total_crashes)) +
+  geom_col(fill = "#b90e0a") +
+  coord_flip() +
+  labs(
+    title = "Total Bike Crashes Ranked by Road",
+    subtitle = "Roads with over 20 crashes",
+    x = "Street Name",
+    y = "Number of Crashes"
+  )
+
+```
+
+This reveals to us that the most crashed-on routes are Mass Ave, Commonwealth, and Washington Street, likely owing in large part to their busyness and the number of cars that share these main thoroughfares with the bicycles. It is worth noting that this list only includes roads which already have some amount of bicycle infrastructure, so each of these roads has, at minimum, shared lane markings.
+
+However, in an effort to normalize the accident data by the number of cyclists who are actually using that road to quantifiably determine the most accident-prone routes, rather than just the raw number of accidents occurring on that route, we then divided the number of accidents by the total number of cyclists recorded on that road, [as provided by Boston Magazine](https://www.bostonmagazine.com/news/2017/03/01/boston-bike-traffic-data/#:~:text=Massachusetts%20Ave%20Columbus%20Avenue%20%E2%80%94%20797%20bicyclists). This report records the number of cyclists recorded at the top ten busiest cycling roads during a particular 24 hour period in September 2016. The top ten Boston roads with the most cyclists are:
+
+1. Massachusetts Ave. Bridge, south of Back Street — 3,081 bicyclists
+
+2. BU Bridge, north of Commonwealth Avenue — 1,957 bicyclists
+
+3. Commonwealth Avenue, west of Silber Way — 1,571 bicyclists
+
+4. Southwest Corridor Bicycle Path, south of Heath Street — 1,554 bicyclists
+
+5. Longwood Avenue, east of Pilgrim Road — 1,348 bicyclists
+
+6. North Harvard Street, south of Soldiers Field Road — 1,320 bicyclists
+
+7. Columbus Avenue, west of Massachusetts Avenue — 1,314 bicyclists
+
+8. Brighton Avenue, east of St. Lukes Road — 1,063 bicyclists
+
+9. Columbus Avenue, west of Holyoke Street — 825 bicyclists
+
+10. Massachusetts Avenue, south of Columbus Avenue — 797 bicyclists
+
+```{r, echo=FALSE}
+busy_street_names <- c(
+  "Massachusetts Avenue", "Commonwealth Avenue", "Columbus Avenue", 
+  "Brighton Avenue", "North Harvard Street", "Longwood Avenue", 
+  "Boston University Bridge", "Southwest Corridor"
+)
+busy_road_stats <- bike_network %>%
+  as_tibble() %>% 
+  filter(STREET_NAM %in% busy_street_names) %>%
+  group_by(STREET_NAM) %>%
+  summarize(total_crashes = sum(crash_count, na.rm = TRUE)) %>%
+  arrange(desc(total_crashes))
+
+ggplot(busy_road_stats, aes(x = reorder(STREET_NAM, total_crashes), y = total_crashes)) +
+  geom_col(fill = "#b90e0a") +
+  coord_flip() +
+  labs(
+    title = "Total Bike Crashes on Boston's Busiest Cycling Roads",
+    subtitle = "Based on Vision Zero Crash Data and Boston Magazine's Top 10 List",
+    x = "Street Name",
+    y = "Number of Crashes"
+  ) +
+  theme_minimal()
+```
+
+The above is the same data as in the same plot but selected down for direct comparison with the following plot, as bicycle traffic data is not easily obtained for every road in Boston.
+
+```{r, echo=FALSE}
+traffic_counts <- tibble(
+  STREET_NAM = c("Massachusetts Avenue", "Boston University Bridge", "Commonwealth Avenue", 
+                 "Southwest Corridor", "Longwood Avenue", "North Harvard Street", 
+                 "Columbus Avenue", "Brighton Avenue"),
+  daily_bikers = c(3878, 1957, 1571, 1554, 1348, 1320, 2139, 1063)
+)
+
+normalized_stats <- bike_network %>%
+  as_tibble() %>%
+  filter(STREET_NAM %in% traffic_counts$STREET_NAM) %>%
+  group_by(STREET_NAM, ExisFacil) %>%
+  summarize(total_crashes = sum(crash_count, na.rm = TRUE), .groups = "drop") %>%
+  left_join(traffic_counts, by = "STREET_NAM") %>%
+  mutate(crash_rate = (total_crashes / daily_bikers) * 100)
+
+ggplot(normalized_stats, aes(x = reorder(STREET_NAM, crash_rate, sum), 
+                             y = crash_rate)) +
+  geom_col(fill = "#b90e0a") +
+  coord_flip() +
+  scale_fill_viridis_d() +
+  labs(
+    title = "Bike Crash Rate on Boston's Busiest Cycling Roads",
+    subtitle = "Normalized: (Total Crashes / Daily Bicyclists) * 100",
+    x = "Street Name",
+    y = "Total Crashes Recorded / Daily Riders"
+  ) +
+  theme_minimal()
+  # theme(
+  #   legend.position = "bottom",
+  #   legend.justification = "left",
+  #   legend.box.just = "left",
+  #   legend.text = element_text(size = 8),
+  #   legend.title = element_text(face = "bold", size = 9)
+  # )
+```
+
+Once we normalize for the number of cyclists, based on the Boston Magazine data collected in 2017, it reveals that although the de facto number of crashes is greater for Massachusetts Avenue than Commonwealth, the actual likelihood of crashing is much higher per cyclist for Commonwealth!
+
+What this reveals to us is that the roads with the most room for growth in bicycle safety and the most direct impact on the number of crashes are Commonwealth Avenue, Massachusetts Avenue, and potentially Washington Street (see the first comparison of routes), although we do not have un-normalized figures for that particular street.
+
+We also overlaid our grid heatmap of accidents with our streetview, and we noticed immediately that certain areas had higher concentration of accidents. The grid view heatmap allowed us to see a lot more easily where accidents were concentrated, and we could now see certain intersections were exceptionally high in terms of accidents.
 
 ```{r, echo=FALSE}
 bike_crashes <- boston_crashes_raw %>%

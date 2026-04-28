@@ -5,7 +5,7 @@ date: "2026-04-03"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)     # for data cleaning and plotting
@@ -24,23 +24,15 @@ library(leaflet.extras)
 library(htmlwidgets) # using this for my new legend
 ```
 
-```{r, include=FALSE}
+```{r, include=FALSE, echo=FALSE}
 boston_crashes_raw <- read.csv("visionzerocrash.csv")
 
 bike_network <- st_read("existing_bike_network_2024.geojson") %>% 
   st_transform(4326) # Ensure WGS84 for Leaflet
 head(bike_network)
-
-bike_network_2022 <- st_read("existing_bike_network_2022.geojson") %>% 
-  st_transform(4326) # Ensure WGS84 for Leaflet
-head(bike_network_2022)
 ```
 
-```{r}
-unique(bike_network$ExisFacil)
-```
-
-```{r}
+```{r, echo=FALSE}
 # sorted from most dangerous (top of legend) to safest (bottom of legend)
 safety_order <- c(
   "SLM",        # Shared Lane Markings (Zero protection, full mixing)
@@ -68,8 +60,8 @@ bike_labels <- data.frame(
     "Shared Lane Markings",
     "Bike Lane/Peak Hour Bus Lane",
     "Contraflow Bike Lane",
-    "Bike Lane/Shared Lane Hybrid",
-    "Separated Bike Lane/Shared Lane Hybrid",
+    "Bike Lane Side + Shared Lane Side",
+    "Separated Bike Lane Side + Shared Lane Side",
     "Traffic-Calmed Local Street",
     "Contraflow Bike Lane",
     "Standard Bike Lane",
@@ -81,7 +73,7 @@ bike_labels <- data.frame(
     "Shared Use Path (Minor)",
     "Shared Use Path (Paved)",
     "Walkway",
-    "Pedestrian Zone"
+    "Pedestrianized Street"
   )
 )
 
@@ -90,7 +82,7 @@ exposure_list$exposure_metric <- 1:nrow(exposure_list)
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 bike_crashes <- boston_crashes_raw %>%
    filter(mode_type == "bike") %>%
    drop_na(lat, long) %>%
@@ -236,7 +228,7 @@ According to [this article by Boston Magazine ](https://www.bostonmagazine.com/n
 
 10. Massachusetts Avenue, south of Columbus Avenue — 797 bicyclists
 
-```{r}
+```{r, echo=FALSE}
 busy_street_names <- c(
   "Massachusetts Avenue", "Commonwealth Avenue", "Columbus Avenue", 
   "Brighton Avenue", "North Harvard Street", "Longwood Avenue", 
@@ -280,7 +272,7 @@ ggplot(dangerous_roads_stats, aes(x = reorder(STREET_NAM, total_crashes), y = to
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 traffic_counts <- tibble(
   STREET_NAM = c("Massachusetts Avenue", "Boston University Bridge", "Commonwealth Avenue", 
                  "Southwest Corridor", "Longwood Avenue", "North Harvard Street", 
