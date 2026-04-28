@@ -99,9 +99,24 @@ bike_crashes <- boston_crashes_raw %>%
 roads_projected <- st_transform(bike_network, 2249)
 crashes_projected <- st_transform(bike_crashes, 2249)
 
-nearest_road_indices <- st_nearest_feature(crashes_projected, roads_projected)
+nearest_indices <- st_nearest_feature(crashes_projected, roads_projected)
+nearest_distances <- st_distance(
+  crashes_projected,
+  roads_projected[nearest_indices, ],
+  by_element = TRUE
+)
 
-road_counts <- table(nearest_road_indices)
+# if its within 15 meters then keep it
+threshold_m  <- 15
+
+assigned_indices <- ifelse(
+  as.numeric(nearest_distances) <= threshold_m,
+  nearest_indices,
+  NA  # crash is too far from any bike network road — left unassigned
+)
+
+road_counts <- table(assigned_indices[!is.na(assigned_indices)])
+
 bike_network$crash_count <- 0
 bike_network$crash_count[as.numeric(names(road_counts))] <- as.numeric(road_counts)
 bike_network$ExisFacil <- factor(bike_network$ExisFacil, levels = safety_order)
@@ -269,6 +284,8 @@ ggplot(dangerous_roads_stats, aes(x = reorder(STREET_NAM, total_crashes), y = to
   )
 
 ```
+
+
 ```{r}
 traffic_counts <- tibble(
   STREET_NAM = c("Massachusetts Avenue", "Boston University Bridge", "Commonwealth Avenue", 
