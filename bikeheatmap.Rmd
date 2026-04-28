@@ -271,8 +271,8 @@ ggplot(dangerous_roads_stats, aes(x = reorder(STREET_NAM, total_crashes), y = to
   geom_col(fill = "#b90e0a") +
   coord_flip() +
   labs(
-    title = "Total Bike Crashes on Boston's Busiest Cycling Roads",
-    subtitle = "Based on Vision Zero Crash Data and Boston Magazine's Top 10 List",
+    title = "Total Bike Crashes Ranked by Road",
+    subtitle = "Roads with over 20 crashes",
     x = "Street Name",
     y = "Number of Crashes"
   )
