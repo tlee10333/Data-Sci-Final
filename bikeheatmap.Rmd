@@ -45,7 +45,7 @@ unique(bike_network$ExisFacil)
 safety_order <- c(
   "SLM",        # Shared Lane Markings (Zero protection, full mixing)
   "BL-PEAKBUS", # Bike Lane/Peak Hour Bus Lane (High-speed heavy vehicle mixing)
-  "CFBS",       # Contraflow Bike Street (Shared space with opposing traffic)
+  "CFBS",       # Contraflow Bike Lane (typo found in the database)
   "BLSL",       # Bike Lane/Shared Lane Hybrid (Inconsistent protection)
   "SBLSL",      # Separated Bike Lane/Shared Lane Hybrid (Gaps in protection)
   "SLMTC",      # Traffic-Calmed Local Street with Shared Lane Markings
@@ -64,10 +64,10 @@ safety_order <- c(
 
 bike_labels <- data.frame(
   Abbr = safety_order,
-  Full_Name = c(
+  infra_full_name = c(
     "Shared Lane Markings",
     "Bike Lane/Peak Hour Bus Lane",
-    "Contraflow Bike Street",
+    "Contraflow Bike Lane",
     "Bike Lane/Shared Lane Hybrid",
     "Separated Bike Lane/Shared Lane Hybrid",
     "Traffic-Calmed Local Street",
@@ -112,22 +112,27 @@ threshold_m  <- 15
 assigned_indices <- ifelse(
   as.numeric(nearest_distances) <= threshold_m,
   nearest_indices,
-  NA  # crash is too far from any bike network road — left unassigned
+  NA  # dont assign roads too far from the road
 )
 
 road_counts <- table(assigned_indices[!is.na(assigned_indices)])
 
 bike_network$crash_count <- 0
 bike_network$crash_count[as.numeric(names(road_counts))] <- as.numeric(road_counts)
-bike_network$ExisFacil <- factor(bike_network$ExisFacil, levels = safety_order)
+bike_network$ExisFacil <- factor(bike_network$ExisFacil, levels = safety_order, ordered=TRUE)
+bike_network <- bike_network %>%
+  left_join(bike_labels, by = c("ExisFacil" = "Abbr"))
 
+
+danger_colors <- colorRampPalette(c("#e41a1c", "#9B8FFF", "#00A719"))(length(safety_order))
+names(danger_colors) <- safety_order
 
 pal <- colorFactor(
-  palette = c("#e41a1c", "#6250FF", "#00A719"),
+  palette = danger_colors,
+  levels = safety_order,
   domain = bike_network$ExisFacil
 )
 
-roadpal <- colorQuantile("RdYlBu", exposure_list$exposure_metric, n = 5)
 
 leaflet() %>%
    addProviderTiles(providers$CartoDB.Positron) %>%
@@ -137,7 +142,7 @@ leaflet() %>%
       color = ~pal(ExisFacil),
       weight = 3,
       opacity = 1,
-      label = ~paste0("Street: ", STREET_NAM, " | Crashes: ", crash_count," | Infra: ", ExisFacil),
+      label = ~paste0("Street: ", STREET_NAM, " | Crashes: ", crash_count," | Infra: ", infra_full_name),
       group = "Infrastructure"
    ) %>%
   
@@ -206,17 +211,6 @@ leaflet() %>%
       });
     }
   ")
-  # addLayersControl(
-  #   overlayGroups = c("Infrastructure", "Crash Hotspots"),
-  #   options = layersControlOptions(collapsed = FALSE)
-  # ) %>%
-  # addLegend(
-  #   pal = pal,
-  #   values = bike_network$ExisFacil,
-  #   title = "Road Category",
-  #   position = "bottomright"
-  # )
-
 ```
 
 
@@ -323,43 +317,43 @@ ggplot(normalized_stats, aes(x = reorder(STREET_NAM, crash_rate, sum),
   # )
 ```
 
-```{r, fig.width=10, fig.height=6, dpi=300}
-normalized_stats <- normalized_stats %>%
-  mutate(ExisFacil = fct_recode(ExisFacil,
-    "Shared Lane Markings" = "SLM",
-    "Peak Hour Bus/Bike Lane" = "BL-PEAKBUS",
-    "Contraflow Bike Lane" = "CFBS", # bike street is not real
-    "Hybrid Shared Lane" = "BLSL",
-    "Separated/Shared Hybrid" = "SBLSL",
-    "Traffic-Calmed Shared Lane" = "SLMTC",
-    "Contraflow Bike Lane" = "CFBL",
-    "Standard Bike Lane" = "BL",
-    "Buffered Bike Lane" = "BFBL",
-    "Separated/Standard Hybrid" = "SBLBL",
-    "Separated Bike Lane" = "SBL",
-    "Contraflow Separated Lane" = "CFSBL",
-    "Natural Shared Use Path" = "SUPN",
-    "Minor Shared Use Path" = "SUPM",
-    "Shared Use Path" = "SUP",
-    "Walkway" = "WALK",
-    "Pedestrian Zone" = "PED"
-  ))
-
-ggplot(normalized_stats, aes(x = reorder(STREET_NAM, crash_rate, sum), 
-                             y = crash_rate, 
-                             fill = ExisFacil)) +
-  geom_col() +
-  coord_flip() +
-  scale_fill_viridis_d() + 
-  labs(
-    title = "Bike Crash Rate on Busiest Boston Roads",
-    subtitle = "Normalized by Number of Daily Bicyclists (Boston Magazine)",
-    x = "Street Name",
-    y = "Total Crashes per 100 Daily Bikers",
-    fill = "Bike Infrastructure Type"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "bottom",
-        legend.text = element_text(size = 8)) +
-  guides(fill = guide_legend(ncol = 4))
-```
+# ```{r, fig.width=10, fig.height=6, dpi=300}
+# normalized_stats <- normalized_stats %>%
+#   mutate(ExisFacil = fct_recode(ExisFacil,
+#     "Shared Lane Markings" = "SLM",
+#     "Peak Hour Bus/Bike Lane" = "BL-PEAKBUS",
+#     "Contraflow Bike Lane" = "CFBS", # bike street is not real
+#     "Hybrid Shared Lane" = "BLSL",
+#     "Separated/Shared Hybrid" = "SBLSL",
+#     "Traffic-Calmed Shared Lane" = "SLMTC",
+#     "Contraflow Bike Lane" = "CFBL",
+#     "Standard Bike Lane" = "BL",
+#     "Buffered Bike Lane" = "BFBL",
+#     "Separated/Standard Hybrid" = "SBLBL",
+#     "Separated Bike Lane" = "SBL",
+#     "Contraflow Separated Lane" = "CFSBL",
+#     "Natural Shared Use Path" = "SUPN",
+#     "Minor Shared Use Path" = "SUPM",
+#     "Shared Use Path" = "SUP",
+#     "Walkway" = "WALK",
+#     "Pedestrian Zone" = "PED"
+#   ))
+# 
+# ggplot(normalized_stats, aes(x = reorder(STREET_NAM, crash_rate, sum), 
+#                              y = crash_rate, 
+#                              fill = ExisFacil)) +
+#   geom_col() +
+#   coord_flip() +
+#   scale_fill_viridis_d() + 
+#   labs(
+#     title = "Bike Crash Rate on Busiest Boston Roads",
+#     subtitle = "Normalized by Number of Daily Bicyclists (Boston Magazine)",
+#     x = "Street Name",
+#     y = "Total Crashes per 100 Daily Bikers",
+#     fill = "Bike Infrastructure Type"
+#   ) +
+#   theme_minimal() +
+#   theme(legend.position = "bottom",
+#         legend.text = element_text(size = 8)) +
+#   guides(fill = guide_legend(ncol = 4))
+# ```
