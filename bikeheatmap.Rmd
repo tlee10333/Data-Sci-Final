@@ -256,7 +256,7 @@ busy_road_stats <- bike_network %>%
   arrange(desc(total_crashes))
 
 ggplot(busy_road_stats, aes(x = reorder(STREET_NAM, total_crashes), y = total_crashes)) +
-  geom_col(fill = "blue") +
+  geom_col(fill = "#b90e0a") +
   coord_flip() +
   labs(
     title = "Total Bike Crashes on Boston's Busiest Cycling Roads",
@@ -274,7 +274,7 @@ dangerous_roads_stats <- bike_network %>%
   arrange(desc(total_crashes))
 
 ggplot(dangerous_roads_stats, aes(x = reorder(STREET_NAM, total_crashes), y = total_crashes)) +
-  geom_col(fill = "blue") +
+  geom_col(fill = "#b90e0a") +
   coord_flip() +
   labs(
     title = "Total Bike Crashes on Boston's Busiest Cycling Roads",
@@ -303,26 +303,24 @@ normalized_stats <- bike_network %>%
   mutate(crash_rate = (total_crashes / daily_bikers) * 100)
 
 ggplot(normalized_stats, aes(x = reorder(STREET_NAM, crash_rate, sum), 
-                             y = crash_rate, 
-                             fill = ExisFacil)) +
-  geom_col() +
+                             y = crash_rate)) +
+  geom_col(fill = "#b90e0a") +
   coord_flip() +
   scale_fill_viridis_d() +
   labs(
     title = "Bike Crash Rate on Boston's Busiest Cycling Roads",
     subtitle = "Normalized: (Total Crashes / Daily Bicyclists) * 100",
     x = "Street Name",
-    y = "Total Crashes Recorded / Daily Riders",
-    fill = "Bike Infrastructure Type"
+    y = "Total Crashes Recorded / Daily Riders"
   ) +
-  theme_minimal() +
-  theme(
-    legend.position = "bottom",
-    legend.justification = "left",
-    legend.box.just = "left",
-    legend.text = element_text(size = 8),
-    legend.title = element_text(face = "bold", size = 9)
-  )
+  theme_minimal()
+  # theme(
+  #   legend.position = "bottom",
+  #   legend.justification = "left",
+  #   legend.box.just = "left",
+  #   legend.text = element_text(size = 8),
+  #   legend.title = element_text(face = "bold", size = 9)
+  # )
 ```
 
 ```{r, fig.width=10, fig.height=6, dpi=300}
@@ -330,7 +328,7 @@ normalized_stats <- normalized_stats %>%
   mutate(ExisFacil = fct_recode(ExisFacil,
     "Shared Lane Markings" = "SLM",
     "Peak Hour Bus/Bike Lane" = "BL-PEAKBUS",
-    "Contraflow Bike Street" = "CFBS",
+    "Contraflow Bike Lane" = "CFBS", # bike street is not real
     "Hybrid Shared Lane" = "BLSL",
     "Separated/Shared Hybrid" = "SBLSL",
     "Traffic-Calmed Shared Lane" = "SLMTC",
