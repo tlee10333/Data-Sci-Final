@@ -206,6 +206,27 @@ leaflet() %>%
 ```
 
 
+```{r, echo=FALSE}
+dangerous_roads_stats <- bike_network %>%
+  as_tibble() %>% 
+  group_by(STREET_NAM) %>%
+  summarize(total_crashes = sum(crash_count, na.rm = TRUE)) %>%
+  filter(total_crashes > 20) %>% 
+  arrange(desc(total_crashes))
+
+ggplot(dangerous_roads_stats, aes(x = reorder(STREET_NAM, total_crashes), y = total_crashes)) +
+  geom_col(fill = "#b90e0a") +
+  coord_flip() +
+  labs(
+    title = "Total Bike Crashes Ranked by Road",
+    subtitle = "Roads with over 20 crashes",
+    x = "Street Name",
+    y = "Number of Crashes"
+  )
+
+```
+
+
 According to [this article by Boston Magazine ](https://www.bostonmagazine.com/news/2017/03/01/boston-bike-traffic-data/#:~:text=Massachusetts%20Ave.,of%20Columbus%20Avenue%20%E2%80%94%20797%20bicyclists) which recorded the busiest cycling roads in Boston, the top ten Boston roads with the most cyclists are
 
 1. Massachusetts Ave. Bridge, south of Back Street — 3,081 bicyclists
@@ -251,25 +272,8 @@ ggplot(busy_road_stats, aes(x = reorder(STREET_NAM, total_crashes), y = total_cr
     y = "Number of Crashes"
   ) +
   theme_minimal()
-
-dangerous_roads_stats <- bike_network %>%
-  as_tibble() %>% 
-  group_by(STREET_NAM) %>%
-  summarize(total_crashes = sum(crash_count, na.rm = TRUE)) %>%
-  filter(total_crashes > 20) %>% 
-  arrange(desc(total_crashes))
-
-ggplot(dangerous_roads_stats, aes(x = reorder(STREET_NAM, total_crashes), y = total_crashes)) +
-  geom_col(fill = "#b90e0a") +
-  coord_flip() +
-  labs(
-    title = "Total Bike Crashes Ranked by Road",
-    subtitle = "Roads with over 20 crashes",
-    x = "Street Name",
-    y = "Number of Crashes"
-  )
-
 ```
+
 
 
 ```{r, echo=FALSE}
@@ -300,13 +304,6 @@ ggplot(normalized_stats, aes(x = reorder(STREET_NAM, crash_rate, sum),
     y = "Total Crashes Recorded / Daily Riders"
   ) +
   theme_minimal()
-  # theme(
-  #   legend.position = "bottom",
-  #   legend.justification = "left",
-  #   legend.box.just = "left",
-  #   legend.text = element_text(size = 8),
-  #   legend.title = element_text(face = "bold", size = 9)
-  # )
 ```
 
 # ```{r, fig.width=10, fig.height=6, dpi=300}
