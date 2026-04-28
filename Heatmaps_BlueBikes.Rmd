@@ -1,14 +1,16 @@
 ---
 title: "Data Science Final Project"
 author: "Amanda Chang, Ben Meyer, Trinity Lee"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 # Data Science Final Project
 
 ### By: Amanda Chang, Ben Meyer, Trinity Lee
 
-```{r, echo=FALSE}
+```{r, include=FALSE}
 library(tidyverse)
 library(lubridate)
 library(leaflet)
@@ -33,7 +35,7 @@ library(maps)
 
 Bicycling is one of the most popular urban mobility alternatives to cars. Most cities often have bike programs to expand access to biking and develop infrastructure to ensure safety when biking. However, even with these improvements, accidents can occur, leading to questions on safety and the factors that can contribute to more bicycle accidents in the busy city. Over the decades, Boston has undertaken to expand its bike lane network to promote safer, more sustainable transportation, accompanied with large amounts of data collected by the government that are freely accessible to all. With such resources, we decided to investigate bike accidents that occurred within the Boston—specifically only in the Suffolk county limits of Boston city—to identify any general trends and also if there were any geographical hotspots and briefly investigate why it is a hotspot and if focusing bike safety improvements in these hotspots would be effective ways to improve bike safety in Boston.
 
-```{r,echo=FALSE}
+```{r,include=FALSE}
 #All Data Loading 
 
 data <- read_csv("Bike_Crash_Data_Vision_Zero.csv")
@@ -145,7 +147,7 @@ The general visualizations on accidents show that bike accidents have steadily b
 
 We can also look at the time based on the season, and the overall data is not surprising.
 
-```{r, echop=FALSE}
+```{r, echo=FALSE}
 
 ggplot(bike, aes(x = hour, fill=season)) +
   geom_histogram(binwidth=1) +
@@ -303,11 +305,11 @@ shinyApp(ui, server)
 
 ## Geographic Investigations
 
-Once confirming that the general accident data held no noticeable irregularities in terms of time, we shifted our focus into identifying any geographic trends with the accidents. Given several statistics reported by [others] (<https://www.cdc.gov/pedestrian-bike-safety/about/bicycle-safety.html>) indicated higher chances of accidents/death for bicyclists at intersections, we used the Vision Zero dataset to see the different categorizations of accidents and where they occurred (street, intersection, etc)
+Once confirming that the general accident data held no noticeable irregularities in terms of time, we shifted our focus into identifying any geographic trends with the accidents. Given several statistics reported by [others](<https://www.cdc.gov/pedestrian-bike-safety/about/bicycle-safety.html>) indicated higher chances of accidents/death for bicyclists at intersections, we used the Vision Zero dataset to see the different categorizations of accidents and where they occurred (street, intersection, etc)
 
 Bar charts of Accidents
 
-```{r}
+```{r, echo=FALSE}
 
 
 ggplot(bike, aes(x = location_type, fill = location_type)) +
@@ -560,127 +562,3 @@ Other instances of this can be seen on Columbia Road, Brighton Avenue, and more,
 ![](images/clipboard-1332675535.png)
 
 While this could be used to support the idea that higher accidents are strongly attributed to the confusion of bike infrastructure changing, the low number of accidents could also be because there were no bike lanes on Washington Street the first place, so bicyclists could have just avoided using Washington Street and opted to use a street with more bike infrastructure. All we can conclude from these visuals is that there seems to be a correlation between intersections and accidents, as well as bike lane switches to a SLM and accidents. 
-
-```{r, echo=FALSE}
-#years <- list("2015", "2016", "2017", "2018", "2019", "2020" , "2021", "2022", "2023", "2024", "2025")     
-# Mass processing data
-
-#new_data <- data.frame()
-#for (month in months) {
-#  filename <- glue("blue_bikes_data/{year}_data/{year}{month}-bluebikes-tripdata/{year}{month}-bluebikes-tripdata.csv")
-#  temp_data <- read_csv(filename, col_types = cols(.default = col_character()))
-#  blue_data <- bind_rows(blue_data, temp_data)
-#}
-#write.csv(blue_data, glue("blue_bikes_data/{year}_data.csv"))
-
-
-#for (year in years) {
-#  filename <- glue("blue_bikes_data_trimmed/{year}_data.csv")
-#  temp_data <- read_csv(filename, col_types = cols(.default = col_character()))
-#  new_data <- temp_data |>
-#  select(
-#    starttime,
-#    stoptime,
-#    `start station id`,
-#    `start station name`,
-#    `start station latitude`,
-#    `start station longitude`,
-#    `end station id`,
-#    `end station name`,
-#    `end station latitude`,
-#    `end station longitude`
-#  )
-#  write.csv(new_data, glue("blue_bikes_data_trimmed/trimmed_{year}_data.csv"))
-#}
-#for (year in list("2024", "2025")) {
-#  filename <- glue("blue_bikes_data_trimmed/{year}_data.csv")
-#  temp_data <- read_csv(filename, col_types = cols(.default = col_character()))
-#new_data <- temp_data |>
-#  rename(
-#    starttime = started_at,
-#    stoptime = ended_at,
-#    `start station id` = start_station_id,
-#    `start station name` = start_station_name,
-#    `start station latitude` = start_lat,
-#    `start station longitude` = start_lng,
-#    `end station id` = end_station_id,
-#    `end station name` = end_station_name,
-#    `end station latitude` = end_lat,
-#   `end station longitude` = end_lng
-# ) |>
-# select(
-#    starttime,
-#    stoptime,
-#    `start station id`,
-#    `start station name`,
-#    `start station latitude`,
-#    `start station longitude`,
-#    `end station id`,
-#    `end station name`,
-#    `end station latitude`,
-#    `end station longitude`
-#  )
-#  write.csv(new_data, glue("blue_bikes_data_trimmed/trimmed_{year}_data.csv"))
-#}
-
-#Group Blue Bikes based on Station Name & Latitude/Longitude and Find Total Trips Per Station
-#years <- list("2015", "2016", "2017", "2018", "2019", "2020" , "2021", "2022", "2023", "2024", "2025")     
-#total_counts <- data.frame(
-#  start_station = character(),
-#  start_lat = numeric(),
-#  start_lng = numeric(),
-#  n = numeric(),
-#  time = 
-#)
-#
-#for (year in years) {
-#  df <- read_csv(glue("blue_bikes_data_trimmed/trimmed_{year}_data.csv"))
-#  temp <- df |>
-#    group_by(start_station, start_lat, start_lng) |>
-#    summarise(n = n(), .groups = "drop")
-#  total_counts <- bind_rows(total_counts, temp)
-#}
-#total_counts <- total_counts |>
-#  group_by(start_station) |>
-#  summarise(
-#    n = sum(n), 
-#    start_lat = mean(start_lat, na.rm = TRUE),
-#    start_lng = mean(start_lng, na.rm = TRUE),
-#    .groups = "drop"
-#  )
-#
-#All trip and accident summary
-#years <- list("2015", "2016", "2017", "2018", "2019", "2020" , "2021", "2022", "2023", "2024", "2025")     
-#all_trips <- data.frame()
-#for (year in years) {
-#  df <- read_csv(glue("blue_bikes_data_trimmed/trimmed_{year}_data.csv")) |>
-#    select(starttime) |>
-#    mutate(
-#      starttime = as.POSIXct(starttime),
-#      year = year(starttime),
-#      month = month(starttime),
-#      season = case_when(
-#        month %in% c(12, 1, 2) ~ "Winter",
-#        month %in% c(3, 4, 5) ~ "Spring",
-#        month %in% c(6, 7, 8) ~ "Summer",
-#        month %in% c(9, 10, 11) ~ "Fall"
-#     )
-#    )
-#    all_trips <- bind_rows(all_trips, df)
-#
-#}
-#all_trips_summary <- all_trips %>%
-#  group_by(year, month, season) %>%
-#  summarise(total_trips = n(), .groups = "drop")
-#
-#accidents_summary <- bike |>
-#  group_by(year, month, season) |>
-#  summarise(total_accidents = n(), .groups = "drop")
-#
-#final_summary <- all_trips_summary |>
-#  left_join(accidents_summary, by = c("year", "month", "season")) |>
-#  mutate(accident_trip_ratio = round(total_accidents/total_trips, 6))
-#
-#final_summary
-#write.csv(final_summary, ("all_trips_summary.csv"))
-```
