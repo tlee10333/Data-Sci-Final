@@ -324,8 +324,22 @@ ggplot(bike, aes(x = location_type, fill = location_type)) +
     y = "Number of Crashes"
   ) +
   theme_minimal()
+```
 
+```{r, echo=FALSE}
 table(bike$location_type)
+
+all_crashes <- ggplot(bike, aes(x=year)) +
+  geom_bar(fill="black") +
+  labs(x="Year", y="Number of Crashes")
+
+faceted_crashes <- ggplot(bike, aes(x=year)) +
+  geom_bar(aes(fill=location_type)) +
+  labs(x="Year", y="Number of Crashes") +
+  facet_grid(rows=vars(location_type))
+
+crash_year_plots <- all_crashes | faceted_crashes
+crash_year_plots + plot_annotation(title="Number of Bike Crashes per Year")
 ```
 
 We investigated where each accident occurred, specifically if it was at an intersection or a street, with a catch all “other” category for the rest. We found that for the past decade the cumulative number of intersections and street accidents are almost the same, superficially disproving the idea that most accidents occur at intersections. If we do a year by year breakdown we can actually see that some years there are more intersection accidents than street bike accidents but there is no definitive trend we can identify. While this high level analysis confirms that intersections and streets have the same amount of risk levels for bike accidents, we will explore in more depth the geographical correlations and will see that certain intersections can be accidents hotspots.
