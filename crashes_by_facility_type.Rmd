@@ -1,0 +1,107 @@
+---
+title: "Crashes By Facility Type"
+author: "Amanda Chang, Ben Meyer, Trinity Lee"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(gplots)
+library(gridExtra)
+library(ggplot2)
+library(patchwork)
+library(RColorBrewer)
+```
+
+# Analysis of Bike Facilities
+
+```{r, include=FALSE}
+# Importing all data used in this section
+facility_codebook <- read_csv("./data/facility_codebook.csv")
+crashes_by_facility <- read_csv("./data/crashes_by_facility.csv")
+facility_counts <- read_csv("./data/facility_counts.csv")
+```
+
+## Bike Facilities
+
+```{r, echo=FALSE}
+knitr::kable(facility_codebook, caption="Codebook for Bike Facility IDs, Ordered by Number of Crashes (Decreasing)")
+```
+
+These are the types of bike facilities and infrastructure we’ll be looking at, ranked from most dangerous to least dangerous. Most are self explanatory, however there are a few terms worth explaining:  
+
+* A *contraflow* bike lane is a bike lane on a one-way street that goes against the flow of car traffic.
+* *Peak hour* is another term for rush hour. A peak hour bus lane is a bike lane that is also shared with buses only during rush hour.
+* A *buffered* bus lane is similar to a separated bike lane, except it’s shared with buses.
+* A *traffic calmed street* has speed bumps, raised crosswalks, and other implements to keep traffic in check.
+
+The Vision Zero Network is a campaign dedicated to eliminating traffic-related fatalities and injuries, which includes collecting detailed data about accidents in several cities worldwide, including Boston. This includes bike accidents, which are denoted with the time, date, street, and precise latitude and longitude on which the accident took place. The Massachusetts Department of Transportation (MASSDOT) collects its own publicly available data about Boston streets, including the number of lanes on each street and their length in feet. Lastly, MASSDOT also takes a yearly bike inventory, which tracks information about the state’s bike infrastructure on its streets, including different types of bike facilities in Boston and which streets they live on.  
+
+All three of these datasets include the names of streets in Boston, although they differ in capitalization and abbreviation (i.e. Ave vs Avenue). After fixing for those two factors, the three datasets can be joined to give the number of bike accidents on each street in Boston since 2015, as well as the bike facilities, the length, and the number of lanes on each of those streets.  
+
+## Linear Regression
+
+Using the data, we found exactly that, then normalized the count of bike accidents per street by dividing the count of crashes by three factors we believed would make a difference. The first was the length of the street, in feet: a longer street should have more crashes. The second was the number of lanes on each street: more lanes should make a street more dangerous. The third was the product of the two (length times number of lanes), which we refer to as area. We then ordered the bike facilities from most crashes per area to least crashes per area, plotted each type of normalization of bike crashes vs facility number (see chart above), and performed linear regression to find a best fit line, shown below.  
+
+```{r, echo=FALSE}
+area_plot <- ggplot(crashes_by_facility, aes(x=facil_id, y=crashes_per_area)) +
+  geom_point() +
+  geom_smooth(method="lm", formula=y~1+x, se=FALSE) +
+  labs(title="Crashes per Area vs Facility ID", x="Bicycle Facility ID", y="Crashes per Street Area") +
+  geom_text(nudge_y=-0.0002, size=2, angle=-20, aes(label=exis_facil))
+
+distance_plot <- ggplot(crashes_by_facility, aes(x=facil_id, y=crashes_per_distance)) +
+  geom_point() +
+  geom_smooth(method="lm", formula=y~1+x, se=FALSE) +
+  labs(title="Crashes per Foot vs Facility ID", x="Bicycle Facility ID", y="Crashes per Street Length (ft)") +
+  geom_text(nudge_y=-0.002, size=2, angle=-20, aes(label=exis_facil))
+
+lane_plot <- ggplot(crashes_by_facility, aes(x=facil_id, y=crashes_per_lane)) +
+  geom_point() +
+  geom_smooth(method="lm", formula=y~1+x, se=FALSE) +
+  labs(title="Crashes per Lane vs Facility ID", x="Bicycle Facility ID", y="Crashes per Lane") +
+  geom_text(nudge_y=-5, size=2, angle=-20, aes(label=exis_facil))
+
+regression_plots <- area_plot | (distance_plot/lane_plot)
+regression_plots + plot_annotation(title="Regression Plots")
+```
+
+This shows the relationship between the type of bike facility and the number of crashes. Both crashes per area vs facility number and crashes per foot vs facility number show a negative and mostly linear trend, while crashes per lane does not when all are ordered the same. This could imply that the number of lanes does not have as much of an impact on the number of crashes as the length of the street, meaning that lane count isn’t as much of an issue as we thought it would be.  
+
+Additionally, while the trend is mostly linear, SBLSL (separated bike lane on one side, shared lane on other side) is the most dangerous facility type by a significant margin. Separated bike lanes are the 5th most dangerous facility type on their own while shared lane markings are the 8th most dangerous, but together, they mean danger for bikers. This could be a result of confusion for drivers, as bike lane conditions differ on either side of the road.  
+
+Another surprising result was that walkways were the 4th most dangerous type of facility, which shows that cars aren’t the only danger for cyclists. When a biker has to share their area with pedestrians, they either risk hitting a pedestrian or they get onto the road and risk getting hit by a car, both of which could be dangerous. Cyclists need their own area - sharing creates danger.  
+
+However, pedestrianized streets are the 4th least dangerous, which is another situation in which cyclists would share with pedestrians. However, if the full street is shared with pedestrians as opposed to just a smaller sidewalk or walkway, that gives both groups their own room to stay safe and avoid collisions. The other facility types with the lowest crash rates (contraflow bike lane, shared use path, and shared lane markings on a traffic calmed street) are likely safer not because of the facilities themselves, but because of the conditions that led them to be made. For instance, a traffic calmed street isn’t safe because of the shared lane markings, but because cars are forced to go slowly thanks to the traffic calming. Additionally, a shared use path doesn’t have any other infrastructure likely because there’s already so little of a risk of collision, which could be a result of low traffic.  
+
+Notably, shared bike lanes (including peak hour bus lanes) were quite low, which was not a result of low traffic. Peak hour bus lanes are used during rush hour, after all - there’s no shortage of traffic. We expected bike lanes shared with buses to be much more dangerous for bikers, but they weren’t, which could be because bus drivers need to be trained much better than regular drivers, and are therefore better at working around bikers in their lanes. For a cyclist, it appears to be safer to share a lane with a trained bus driver than any other car driver.  
+
+## Prevalence of Different Facilities
+
+What we've found so far suggests that some facilities are more dangerous than others - not all bike facilities are created equal. In an ideal and bike-safe Boston, the safest facilities would be the most common. Is that true of the Boston in our reality?  
+
+```{r, echo=FALSE}
+ggplot(facility_counts, aes(x=proportion, y=crashes_per_area)) +
+  geom_point(aes(color=crashes_per_area)) +
+  scale_color_gradient(low="Green", high="Red", guide="none") +
+  geom_text(size=2, nudge_y=-0.00008, aes(label=exis_facil)) +
+  labs(x="Proportion of Total Bike Facilities", y="Bike Crashes per Street Area", title="Crashes per Area vs Proportion of Total Bike Facilities")
+```
+
+The x axis here shows the proportion of total bike facilities, meaning the fraction of all of Boston's bike facilities made up by facilities of that particular type. The y axis is the data we have already been looking at: bike crashes per street area. The most common facility types by far are shared lane markings and straight-up bike lanes. Next are separated bike lanes, then bike lane/shared lane and buffered bike lanes are quite similar, and the rest all make up less than 5% of Boston's total bike facilities.  
+
+Shared lane markings as the most common facility type is a good sign, as they're the eighth most dangerous facility type (out of 14), with less than 0.0015 crashes per street area. However, bike lanes are similarly common despite being the third most dangerous facility type, with 0ver 0.002 crashes per street area. While the number is quite small, it's still greater than that of 11 of the other facility types. Separated bike lanes are very similar in terms of bike crashes per street area, and they are the third most common of Boston's bike facilities. While these infrastructures work for avoiding most crashes, other facility types appear more effective for a safer Boston.  
+
+For instance, buffered bike lanes are one of the safer facility types, and they're quite common, making up just under 10% of Boston's bike facilities. Those and shared lane markings are both quite common and quite safe, and may be a good direction for Boston moving forward. One may not expect shared lane markings to be so safe, especially compared to designated bike lanes, but the data shows otherwise. That may be a result of drivers being more careful when they have to share the lane with bikers, or they may just be built on roads that already don't have as dangerous traffic. This isn't enough data to conclude exactly why they appear safer, but the circumstances that lead to less bike crashes on roads with shared lane markings would be worth studying further.
+
+# General Conclusions
+## Is Boston Safe for Bikers? (Yes!)
+Yes, Boston is very safe for bikers! Even where crashes existed, they were often quite small in number. Bike usage has increased over the years (as signified by increased numbers of Blue Bike trips over the last decade), yet the number of bike crashes has been declining. The number of fatal bike crashes in 2025 was 13, compared to 2015’s 20. Still, as the Vision Zero Boston campaign puts it, “even one fatality is too many.” ([Vision Zero Boston](https://www.boston.gov/departments/transportation/vision-zero)). The city of Boston’s Go Boston 2030 Program launched in 2017 and has been dedicated to improving transportation in Boston since, including bike transport and general cyclist safety. One of its sub-programs is called Better Bike Lanes, which is directly applicable to what we’ve been talking about: improving bike lanes to make Boston safer for bikers. Evidently, their developments are working.  
+
+## What to Focus on Moving Forward
+Although Boston’s bike infrastructure has been steadily improving over the last decade, there are still improvements to be made before Boston Vision Zero can achieve its goals of eliminating traffic-related fatalities and severe injuries completely. For instance, despite bike lanes with no added form of protection being the third most dangerous type of facility by our metrics, it’s still the second most common type of bike facility of the Boston bike inventory data (just behind shared lane markings). The third most common type of bike facility in Boston is the separated bike lane, which also happens to be the fifth most dangerous. Both bike lanes and separated bike lanes have 3-5 injured cyclists for every 1000 feet of road, which isn’t a lot, but it’s certainly not zero. Working towards building more effective bike infrastructure and calming traffic where possible would no doubt improve cyclist safety in Boston.  
+
+Additionally, many intersections around Boston’s busier streets are far from safe for bikers. Even where the right facilities are in place, the types of motor vehicle traffic still need to be accounted for in order to keep cyclists safe. A great example of this is the Mass Ave intersection pictured in the intersection above, in which a very large truck makes a right turn over a marked and partially separated bike lane on the left side of the road. There are visible implements separating the bike lane from the cars leading up to that point, but they don’t exist on the intersection itself. Cars can’t be blocked from turning at an intersection, but that does mean cyclists become much more vulnerable, and it may be hard for a truck of that size to see and avoid colliding with a cyclist, especially on such a narrow right turn. In order to prevent further crashes and fatalities from occurring at intersections like that, the Boston government needs to be more aware of the different kinds and sizes of vehicle traffic on Boston’s busiest roads in order to keep intersections from becoming such major hazards for its cyclists.
