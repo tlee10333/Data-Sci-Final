@@ -1,0 +1,15 @@
+facil_id,exis_facil,exis_facil_long
+1,SBLSL,"Separated Bike Lane on One Side, Shared Lane on Other Side"
+2,SBLBL,"Separated Bike Lane on One Side, Bike Lane on Other Side"
+3,BL,Bike Lane
+4,WALK,Walkway
+5,SBL,Separated Bike Lane
+6,CFSBL,Contraflow Separated Bike Lane
+7,BLSL,"Bike Lane on One Side, Shared Lane on Other Side"
+8,SLM,Shared Lane Markings or Shared Bus Lane
+9,BL-PEAKBUS,Bike Lane / Peak Hour Bus Lane
+10,BFBL,Buffered Bus Lane
+11,PED,Pedestrianized Street
+12,CFBL,Contraflow Bike Lane
+13,SUP,Shared Use Path
+14,SLMTC,Shared Lane Markings on a Traffic Calmed Street

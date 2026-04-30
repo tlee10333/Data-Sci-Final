@@ -30,6 +30,5 @@
 # R Environment Variables
 .Renviron
 
-# data files
+# unnecessary data files
 *.geojson
-*.csv
