@@ -7,7 +7,7 @@ output:
 runtime: shiny
 ---
 
-# Data Science Final Project
+# Bike Safety in Boston
 
 ### By: Amanda Chang, Ben Meyer, Trinity Lee
 
