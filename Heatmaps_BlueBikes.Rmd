@@ -1,15 +1,11 @@
 ---
-title: "Data Science Final Project"
-author: "Amanda Chang, Ben Meyer, Trinity Lee"
+title: "Bike Safety in Boston"
+author: "By: Amanda Chang, Ben Meyer, Trinity Lee"
 output:
   html_document:
     df_print: paged
 runtime: shiny
 ---
-
-# Bike Safety in Boston
-
-### By: Amanda Chang, Ben Meyer, Trinity Lee
 
 ```{r, include=FALSE}
 library(tidyverse)
@@ -951,3 +947,5 @@ Yes, Boston is very safe for bikers! Even where crashes existed, they were often
 Although Boston’s bike infrastructure has been steadily improving over the last decade, there are still improvements to be made before Boston Vision Zero can achieve its goals of eliminating traffic-related fatalities and severe injuries completely. For instance, despite bike lanes with no added form of protection being the third most dangerous type of facility by our metrics, it’s still the second most common type of bike facility of the Boston bike inventory data (just behind shared lane markings). The third most common type of bike facility in Boston is the separated bike lane, which also happens to be the fifth most dangerous. Both bike lanes and separated bike lanes have 3-5 injured cyclists for every 1000 feet of road, which isn’t a lot, but it’s certainly not zero. Working towards building more effective bike infrastructure and calming traffic where possible would no doubt improve cyclist safety in Boston.  
 
 Additionally, many intersections around Boston’s busier streets are far from safe for bikers. Even where the right facilities are in place, the types of motor vehicle traffic still need to be accounted for in order to keep cyclists safe. A great example of this is the Mass Ave intersection pictured in the intersection above, in which a very large truck makes a right turn over a marked and partially separated bike lane on the left side of the road. There are visible implements separating the bike lane from the cars leading up to that point, but they don’t exist on the intersection itself. Cars can’t be blocked from turning at an intersection, but that does mean cyclists become much more vulnerable, and it may be hard for a truck of that size to see and avoid colliding with a cyclist, especially on such a narrow right turn. In order to prevent further crashes and fatalities from occurring at intersections like that, the Boston government needs to be more aware of the different kinds and sizes of vehicle traffic on Boston’s busiest roads in order to keep intersections from becoming such major hazards for its cyclists.
+
+## Citations
