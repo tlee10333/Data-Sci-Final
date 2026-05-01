@@ -4,6 +4,7 @@ author: "Amanda Chang, Ben Meyer, Trinity Lee"
 output:
   html_document:
     df_print: paged
+runtime: shiny
 ---
 
 # Data Science Final Project
@@ -13,7 +14,7 @@ output:
 ```{r, include=FALSE}
 library(tidyverse)
 library(lubridate)
-library(leaflet)
+library(leaflet) 
 library(shiny)
 library(leaflet)
 library(dplyr)
@@ -32,6 +33,7 @@ library(maps)
 library(ggthemes)
 library(leaflet.extras)
 library(htmlwidgets) # for amanda's legend
+library(patchwork)
 ```
 
 ## Introduction
@@ -135,21 +137,12 @@ ggplot(bike, aes(x = year)) +
   ) +
   theme_minimal()
 
-ggplot(bike, aes(x = hour)) +
-  geom_histogram(binwidth=1, fill="blue") +
-  facet_wrap(year ~.)+
-  labs(
-    title = "Distribution of Crash Times Per Year",
-    x = "Hour of Day",
-    y = "Number of Crashes"
-  ) +
-  theme_minimal()
+
 ```
 
 The general visualizations on accidents show that bike accidents have steadily been decreasing each year, and that during a 24 hour period, for all years except during the pandemic there are often spikes in accidents during rush hour (8am-10am and 5pm-6pm) Overall, the data corroborated pre-existing assumptions on bike accidents like how rush hour is when there are the most accidents (probably due to the heightened volume of bike and car traffic in general). For Boston, the yearly bike accident trends showed no irregularities and in fact displayed a slow decrease in accidents over the past decade, even when we ignore the decrease due to the pandemic (2020-2022) when there were just less people going outside. This decrease could be attributed to Boston’s continual infrastructure work on bike safety that has occurred starting in 2018, as outlined on the Boston government's [website page](https://www.boston.gov/departments/transportation/safer-more-accessible-walking-and-biking) on bike infrastructure work which showcases all their projects to build more bike lines and more.
 
 We can also look at the time based on the season, and the overall data is not surprising.
-
 ```{r, echo=FALSE}
 
 ggplot(bike, aes(x = hour, fill=season)) +
