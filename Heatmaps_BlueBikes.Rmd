@@ -454,7 +454,7 @@ Overall, these visualizations can give the viewer a clear idea as to the sheer v
 
 ## Datasets
 
-In most cities, like the city of Boston, bike infrastructure is not consistent, with different types of bike lane categorizations. For the city of Boston, there was a [dataset](https://experience.arcgis.com/experience/925eb7fd89c24c5f9c07bcc20ee9ea74/) which mapped out the different bike lanes. After analyzing the different types of bike lanes, we drew up a scale based on the qualitative danger level of each type of lane for bicyclists, measured by vehicle exposure. For example, a shared bike lane with vehicles (no clear demarcation of what is a bike lane versus car lane) would probably pose higher danger levels to bicyclists for crashes with other vehicles given the vicinity of cars compared to a clear and separate bike lane. 
+In most cities, like the city of Boston, bike infrastructure is not consistent, with different types of bike lane categorizations. For the city of Boston, there was a [dataset](https://experience.arcgis.com/experience/925eb7fd89c24c5f9c07bcc20ee9ea74/) which mapped out the different bike lanes. After analyzing the different types of bike lanes, we drew up a scale based on the qualitative danger level of each type of lane for bicyclists, measured by vehicle exposure. The order of these is shown below:
 
 ```{r, echo=FALSE}
 # sorted from most dangerous (top of legend) to safest (bottom of legend)
@@ -503,7 +503,10 @@ bike_labels <- data.frame(
 
 exposure_list <- data.frame(safety_order)
 exposure_list$exposure_metric <- 1:nrow(exposure_list)
+knitr::kable(bike_labels, caption="Codebook for Bike Facility IDs, Ordered by Vehicle Exposure")
 ```
+
+For example, a shared bike lane with vehicles (no clear demarcation of what is a bike lane versus car lane) would probably pose higher danger levels to bicyclists for crashes with other vehicles given the vicinity of cars compared to a clear and separate bike lane. Using the geographical data provided to us by the Boston Bikes department, we overlayed a heatmap of accidents with lane data to understand the relationship between the infrastructure provided to a cyclist and the likelihood of an accident there.
 
 ```{r, echo=FALSE}
 bike_crashes <- boston_crashes_raw %>%
@@ -627,8 +630,39 @@ leaflet() %>%
     }
   ")
 ```
+Here we can see that the accidents are most concentrated in the city limits, and that the biggest hotspots are present on Mass Ave, Commonwealth Ave, on State Street, and on Cambridge St. Inspecting the map more closely reveals a higher density of accidents around intersections, especially at the junction between Mass Ave and Southampton Street, which we will explore below. Closer inspection around the different types of lanes reveals that the roads with lower vehicle exposure (for instance, Southwest Corridor in green) have significantly less accidents than roads with higher exposure like at the intersection of Commonwealth and Harvard Ave, which have shared lane markings and a bike lane/shared lane hybrid structure respectively. There are also some notable concentrations of accidents outside the bike lane infrastructure entirely, like near the southwest portion of Southwest Corridor where it intersects with Tremont Street (although no accidents occurred on the street itself).
 
-Here we have the raw number of crashes for all roads with greater than 20 bicycle accidents in Boston:
+We used Google street view to investigate further into the aforementioned Mass Ave and Southampton Street intersection.
+
+Street view at this intersection reveals Southampton St as a 4 lane road with no bicycle infrastructure, thin sidewalks with frequent interruptions/curb cuts, and a clearly car-dependent architecture. 
+
+
+In mild contrast, Mass Ave has a separated protected bike lane at this merge. However, the traffic on this road seems to be dominated by larger vehicles and an optimization for cars, and there is no protection at intersections for cyclists. Even more importantly, there was a bicyclist fatality just north of this intersection on April 22, 2020. This is one of 11 total fatalities in Boston since January 1st, 2015, with 3 total fatalities along the whole of Mass Ave in 2015, 2020, and 2022. 
+
+
+To further characterize the most dangerous Boston streets and identify the most impactful possible infrastructural improvements towards reducing bike accidents, we referenced a [2017 Boston Magazine report](https://www.bostonmagazine.com/news/2017/03/01/boston-bike-traffic-data/#:~:text=Massachusetts%20Ave%20Columbus%20Avenue%20%E2%80%94%20797%20bicyclists). This report records the number of cyclists recorded at the top ten busiest cycling roads during a particular 24 hour period in September 2016. According to the report, the top ten Boston roads with the most cyclists were:
+
+1. Massachusetts Ave. Bridge, south of Back Street — 3,081 bicyclists
+
+2. BU Bridge, north of Commonwealth Avenue — 1,957 bicyclists
+
+3. Commonwealth Avenue, west of Silber Way — 1,571 bicyclists
+
+4. Southwest Corridor Bicycle Path, south of Heath Street — 1,554 bicyclists
+
+5. Longwood Avenue, east of Pilgrim Road — 1,348 bicyclists
+
+6. North Harvard Street, south of Soldiers Field Road — 1,320 bicyclists
+
+7. Columbus Avenue, west of Massachusetts Avenue — 1,314 bicyclists
+
+8. Brighton Avenue, east of St. Lukes Road — 1,063 bicyclists
+
+9. Columbus Avenue, west of Holyoke Street — 825 bicyclists
+
+10. Massachusetts Avenue, south of Columbus Avenue — 797 bicyclists
+
+To compare these busyness metrics with the number of crashes per road, we first characterized the raw number of crashes for all roads with greater than 20 bicycle accidents in Boston without normalization:
 ```{r, echo=FALSE}
 dangerous_roads_stats <- bike_network %>%
   as_tibble() %>% 
@@ -651,27 +685,7 @@ ggplot(dangerous_roads_stats, aes(x = reorder(STREET_NAM, total_crashes), y = to
 
 This reveals to us that the most crashed-on routes are Mass Ave, Commonwealth, and Washington Street, likely owing in large part to their busyness and the number of cars that share these main thoroughfares with the bicycles. It is worth noting that this list only includes roads which already have some amount of bicycle infrastructure, so each of these roads has, at minimum, shared lane markings.
 
-However, in an effort to normalize the accident data by the number of cyclists who are actually using that road to quantifiably determine the most accident-prone routes, rather than just the raw number of accidents occurring on that route, we then divided the number of accidents by the total number of cyclists recorded on that road, [as provided by Boston Magazine](https://www.bostonmagazine.com/news/2017/03/01/boston-bike-traffic-data/#:~:text=Massachusetts%20Ave%20Columbus%20Avenue%20%E2%80%94%20797%20bicyclists). This report records the number of cyclists recorded at the top ten busiest cycling roads during a particular 24 hour period in September 2016. The top ten Boston roads with the most cyclists are:
-
-1. Massachusetts Ave. Bridge, south of Back Street — 3,081 bicyclists
-
-2. BU Bridge, north of Commonwealth Avenue — 1,957 bicyclists
-
-3. Commonwealth Avenue, west of Silber Way — 1,571 bicyclists
-
-4. Southwest Corridor Bicycle Path, south of Heath Street — 1,554 bicyclists
-
-5. Longwood Avenue, east of Pilgrim Road — 1,348 bicyclists
-
-6. North Harvard Street, south of Soldiers Field Road — 1,320 bicyclists
-
-7. Columbus Avenue, west of Massachusetts Avenue — 1,314 bicyclists
-
-8. Brighton Avenue, east of St. Lukes Road — 1,063 bicyclists
-
-9. Columbus Avenue, west of Holyoke Street — 825 bicyclists
-
-10. Massachusetts Avenue, south of Columbus Avenue — 797 bicyclists
+However, in an effort to normalize the accident data by the number of cyclists who are actually using that road to quantifiably determine the most accident-prone routes, rather than just the raw number of accidents occurring on that route, we then divided the number of accidents by the total number of cyclists recorded on that road.
 
 ```{r, echo=FALSE}
 busy_street_names <- c(
@@ -737,7 +751,7 @@ ggplot(normalized_stats, aes(x = reorder(STREET_NAM, crash_rate, sum),
   # )
 ```
 
-Once we normalize for the number of cyclists, based on the Boston Magazine data collected in 2017, it reveals that although the de facto number of crashes is greater for Massachusetts Avenue than Commonwealth, the actual likelihood of crashing is much higher per cyclist for Commonwealth!
+Once we normalize for the number of cyclists, it reveals that although the de facto number of crashes is greater for Massachusetts Avenue than Commonwealth, the actual likelihood of crashing is much higher per cyclist for Commonwealth!
 
 What this reveals to us is that the roads with the most room for growth in bicycle safety and the most direct impact on the number of crashes are Commonwealth Avenue, Massachusetts Avenue, and potentially Washington Street (see the first comparison of routes), although we do not have un-normalized figures for that particular street.
 
