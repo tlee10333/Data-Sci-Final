@@ -59,8 +59,8 @@ convert_roadnames <- function(name) {
 
 Importing and tidying Vision Zero fatality and injury data
 ```{r}
-vision_zero_fatality <- tidy_vision_zero_data("./data/Bike_Fatality_Data_Vision_Zero.csv")
-vision_zero_injury <- tidy_vision_zero_data("./data/Bike_Crash_Data_Vision_Zero.csv")
+vision_zero_fatality <- tidy_vision_zero_data("../data/Bike_Fatality_Data_Vision_Zero.csv")
+vision_zero_injury <- tidy_vision_zero_data("../data/Bike_Crash_Data_Vision_Zero.csv")
 vision_zero_total <- full_join(vision_zero_injury, vision_zero_fatality, by=("street"="street")) |>
   rename(injury_count=`count.x`, fatality_count=`count.y`) |>
   mutate(fatality_count=replace(fatality_count, is.na(fatality_count), 0),
@@ -74,7 +74,7 @@ rm(vision_zero_fatality, vision_zero_injury)
 ## Boston Managed Streets (Data About Streets)
 Getting street lengths from Boston Gov Data
 ```{r}
-boston_streets <- read_csv("./data/City_Of_Boston_Managed_Streets.csv", show_col_types=FALSE) |>
+boston_streets <- read_csv("../data/City_Of_Boston_Managed_Streets.csv", show_col_types=FALSE) |>
   clean_names() |>
   filter(mgis_town=="BOSTON", !is.na(streetname)) |>
   select(c(streetname, length_ft, num_lanes)) |>
@@ -86,7 +86,7 @@ boston_streets <- read_csv("./data/City_Of_Boston_Managed_Streets.csv", show_col
 ## Boston Bike Network (Bike Facilities by Street)
 Getting bike facilities from Boston Bike Network Data
 ```{r}
-bike_network <- read_csv("./data/existing_bike_network_2024.csv", 
+bike_network <- read_csv("../data/existing_bike_network_2024.csv", 
      col_types = cols(ExisFacil = col_factor(levels = c(
 #       "SBLBL", "PED", "CFSBL", "SBLSL", "BFBL", "WALK", "BLSL", "CFBS", "CFBL",
 #       "SBL", "SLM", "BL", "SUP", "SUPM", "BL-PEAKBUS", "SLMTC", "SUPN"
@@ -161,7 +161,7 @@ facility_counts <- crashes_by_facility |>
 ## Saving Cleaned/Joined Data
 Writing tibbles to csv files in repository
 ```{r}
-write_csv(facility_codebook, "./data/facility_codebook.csv")
-write_csv(crashes_by_facility, "./data/crashes_by_facility.csv")
-write_csv(facility_counts, "./data/facility_counts.csv")
+write_csv(facility_codebook, "../data/facility_codebook.csv")
+write_csv(crashes_by_facility, "../data/crashes_by_facility.csv")
+write_csv(facility_counts, "../data/facility_counts.csv")
 ```
