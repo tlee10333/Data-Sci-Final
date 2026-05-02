@@ -1,17 +1,13 @@
 ---
 title: "Bike Safety in Boston"
 author: "By: Amanda Chang, Ben Meyer, Trinity Lee"
-output:
-  html_document:
-    df_print: paged
-runtime: shiny
+output: html_document
 ---
 
 ```{r, include=FALSE}
 library(tidyverse)
 library(lubridate)
 library(leaflet) 
-library(shiny)
 library(leaflet)
 library(dplyr)
 library(readr)
@@ -58,11 +54,11 @@ bike <- data |>
     hour = hour(dispatch_ts) )
 
 #Blue Bikes Trip Summary
-all_summary <- read.csv("all_trips_summary.csv")
+all_summary <- read.csv("./data/all_trips_summary.csv")
 
 
 #Blue Bikes Import Total Trip Count Per Start Station with Coordinations and Filter Out Stations Outside of Boston
-total_counts <- read.csv("total_counts_with_coord.csv")
+total_counts <- read.csv("./data/total_counts_with_coord.csv")
 total_counts <- head(total_counts, -1) |>
   #only in boston
   filter((42.237210 < start_lat & start_lat < 42.400739) & 
@@ -110,11 +106,11 @@ total_counts <- total_counts |>
 
 #Amanda's section & bike lane data
 boston_crashes_raw <- bike
-bike_network <- st_read("existing_bike_network_2024.json") %>% 
+bike_network <- st_read("./data/existing_bike_network_2024.json") %>% 
   st_transform(4326) # Ensure WGS84 for Leaflet
 head(bike_network)
 
-bike_network_2022 <- st_read("existing_bike_network_2022.json") %>% 
+bike_network_2022 <- st_read("./data/existing_bike_network_2022.json") %>% 
   st_transform(4326) # Ensure WGS84 for Leaflet
 head(bike_network_2022)
 ```
@@ -365,9 +361,9 @@ The first is a standard grid view of accidents per geographic grid. We can see v
 
 ### Heatmap of Accidents in Boston with Hotspot Roads
 
-##### Visualization highlighting hotspot roads overlaid as shown by the heatmap 
+##### Visualization highlighting hotspot roads overlaid as shown by the heatmap
 
-```{}
+```         
 ```
 
 ![](images/clipboard-1074527958.png)
