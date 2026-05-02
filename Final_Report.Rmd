@@ -42,7 +42,6 @@ Bicycling is one of the most popular urban mobility alternatives to cars. Most c
 #All Data Loading 
 
 data <- read_csv("./data/Bike_Crash_Data_Vision_Zero.csv")
-
 bike <- data |>
   filter(mode_type == "bike") |>
   mutate(
@@ -124,6 +123,10 @@ head(bike_network_2022)
 
 For our first pass at bike accident investigations, we wanted to see if there were any overall trends, not purely geographical, that could contribute to higher accident rates. For this, we leveraged the accidents dataset provided by Vision Zero ([Vision Zero Boston, 2015-2026](https://experience.arcgis.com/experience/bae68e65908f45e1bcc86fe5f089d266/page/Main-Grid-after-9%2F3)) which collected bike accident data in Boston for the past decade. We decided to see if there were any trends for crash data based on time, as shown by the bar charts below.
 
+### Yearly Boston Bike Accidents
+
+##### Yearly reported bike accidents in Boston showcase decreasing trend over time
+
 ```{r, echo=FALSE}
 
 ggplot(bike, aes(x = year)) +
@@ -141,6 +144,11 @@ ggplot(bike, aes(x = year)) +
 The general visualizations on accidents show that bike accidents have steadily been decreasing each year, and that during a 24 hour period, for all years except during the pandemic there are often spikes in accidents during rush hour (8am-10am and 5pm-6pm) Overall, the data corroborated pre-existing assumptions on bike accidents like how rush hour is when there are the most accidents (probably due to the heightened volume of bike and car traffic in general). For Boston, the yearly bike accident trends showed no irregularities and in fact displayed a slow decrease in accidents over the past decade, even when we ignore the decrease due to the pandemic (2020-2022) when there were just less people going outside. This decrease could be attributed to Boston’s continual infrastructure work on bike safety that has occurred starting in 2018, as outlined on the Boston government's [website page](https://www.boston.gov/departments/transportation/safer-more-accessible-walking-and-biking) on bike infrastructure work which showcases all their projects to build more bike lines and more.
 
 We can also look at the time based on the season, and the overall data is not surprising.
+
+### Boston Bike Accidents By Season
+
+##### Bike accidents separated by season over 24 hours shows seasonal trends
+
 ```{r, echo=FALSE}
 
 ggplot(bike, aes(x = hour, fill=season)) +
@@ -159,6 +167,10 @@ There were less bike accidents during seasons like winter when there would also 
 
 When overlaying the graphs, we can see that bicycle accidents in Boston have steadily been decreasing while the number of bike trips via Bluebikes have increased. While Bluebike trip increases causation may be due to station expansions as adoption increases, it’s important to note that it still does show that there are more and more bikes being used Boston each year.
 
+### BlueBikes Usage VS Bike Accidents
+
+##### A comparison graph of increasing bike trips in Boston via BlueBikes in the past decade versus the declining bike accidents in Boston
+
 ```{r, echo=FALSE}
 
 df_year <- all_summary |>
@@ -169,34 +181,36 @@ df_year <- all_summary |>
     .groups = "drop"
   )
 
-scale_factor <- max(df_year$total_trips) / max(df_year$total_accidents)
 
-ggplot(df_year, aes(x = year)) +
-  geom_col(aes(y = total_trips / 1000, fill = "Trips (per thousand)"), alpha = 0.6) +
-  geom_line(aes(y = total_accidents * scale_factor / 1000,
-                group = 1,
-                color = "Accidents"),
-            linewidth = 1.2) +
-  geom_point(aes(y = total_accidents * scale_factor / 1000,
-                 color = "Accidents"),
-             size = 2) +
-  scale_fill_manual(values = c("Trips (per thousand)" = "steelblue")) +
-  scale_color_manual(values = c("Accidents" = "red")) +
-  scale_y_continuous(
-    name = "Trips (thousands)",
-    sec.axis = sec_axis(~ . * 1000 / scale_factor, name = "Accidents")
-  ) +
+p1 <- ggplot(df_year, aes(x = factor(year), y = total_trips)) +
+  geom_col(fill = "steelblue", alpha = 0.7) +
+  scale_y_continuous(labels = scales::comma)+
   labs(
-    title = "Total Annual Bike Trips vs Bike Accidents (Yearly, Dual Axis)",
-    x = "Year",
-    fill = "",
-    color = ""
+    title = "Total Annual Bike Trips", 
+    x = NULL,
+    y = "Trips"
   ) +
   theme_minimal()
 
+p2 <- ggplot(df_year, aes(x = factor(year), y = total_accidents)) +
+  geom_line(aes(group = 1), color = "red", linewidth = 1.2) +
+  geom_point(color = "red", size = 2) +
+  labs(
+    title = "Total Annual Bike Accidents",
+    x = "Year",
+    y = "Accidents"
+  ) +
+  theme_minimal()
+
+p1 / p2
+
 ```
 
-We also overlaid geographically the bicycle accidents on the map and each blue bikes station on the map (sized and colored based on volume of trips taken from the station) to see if there were any interesting trends, which we did not find any.
+We also overlaid geographically the bicycle accidents on the map and each blue bikes station on the map (sized and colored based on volume of trips taken from the station) to see if there were any interesting trends. One thing we can gather from this map is that there is no obvious trend between stations with higher traffic and bike accidents in Boston. In fact, it looks as if the higher density areas (like Mass Ave) this visual does not indicate if there are more accidents in these high BlueBikes traffic than areas without them, like Dorchester Ave. Further investigation into this will be done with visualizations further below, but this visual does prove that there is more than a simple linear correlation between higher traffic and accidents.
+
+### Bike Accidents and BlueBike Stations in Boston
+
+##### Geographically plotted bike accidents locations in relation to BlueBike stations with indication of trip volume in the past decade
 
 ```{r, echo=FALSE}
 bike <- bike |>
@@ -209,6 +223,7 @@ pal <- colorNumeric(
 
 #Station Data
 leaflet()|>
+  setView(lng = -71.1, lat = 42.35, zoom = 13) |>  # Boston area
   addTiles() |>
   addCircles(
     data = total_counts,
@@ -243,79 +258,11 @@ leaflet()|>
 
 ```
 
-One curiosity was whether time affected the geographic location of accidents. Unfortunately, the base data did not indicate there was a strong trend between time and geographic accidents. Below is a map that that plots the bike accidents that occurred during the last decade in Boston, and from a first glance the accidents seem to be random geographically.
-
-```{r, echo=FALSE}
-ui <- fluidPage(
-  titlePanel("Bike Crashes by Time of Day"),
-  
-  sidebarLayout(sidebarPanel(sliderInput(
-        "time",
-        "Show crashes at hours:",
-        min = 0,
-        max = 24,
-        value = 12,
-        step = 1
-      )),
-    mainPanel(
-      leafletOutput("map")
-    )))
-
-server <- function(input, output, session) {
-  filtered_data <- reactive({
-    bike |>
-      filter(hour == input$time)
-  })
-  
-  # Base map
-  output$map <- renderLeaflet({
-    leaflet(bike) |>
-    addProviderTiles(providers$CartoDB.Positron) |>
-      setView(lng = mean(bike$long, na.rm = TRUE),
-              lat = mean(bike$lat, na.rm = TRUE),
-              zoom = 12)
-  })
-  
-  # Update points when slider moves
-  observe({
-    leafletProxy("map", data = filtered_data()) |>
-      clearMarkers() |>
-      addCircleMarkers(
-        lng = ~long,
-        lat = ~lat,
-        color = "blue",
-        radius = 4,
-        stroke = FALSE,
-        fillOpacity = 0.7,
-        popup = ~paste(
-          "Year:", year, "<br>",
-          "Mode:", mode_type, "<br>",
-          "Street:", street, "<br>",
-          "Time:", dispatch_ts
-        ))})
-}
-shinyApp(ui, server)
-```
-
 ## Geographic Investigations
 
-Once confirming that the general accident data held no noticeable irregularities in terms of time, we shifted our focus into identifying any geographic trends with the accidents. Given several statistics reported by [others](<https://www.cdc.gov/pedestrian-bike-safety/about/bicycle-safety.html>) indicated higher chances of accidents/death for bicyclists at intersections, we used the Vision Zero dataset to see the different categorizations of accidents and where they occurred (street, intersection, etc)
+Continuing with our geographic analysis, we shifted our focus into identifying any geographic trends with the accidents. Given several statistics reported by [others](https://www.cdc.gov/pedestrian-bike-safety/about/bicycle-safety.html) indicated higher chances of accidents/death for bicyclists at intersections, we used the Vision Zero dataset to see the different categorizations of accidents and where they occurred (street, intersection, etc). We summed up all the accidents at intersections, streets, and other locations over the past decade as well as yearly visualizations of each
 
 Bar charts of Accidents
-
-```{r, echo=FALSE}
-
-
-ggplot(bike, aes(x = location_type, fill = location_type)) +
-  geom_bar() +
-  facet_wrap(year ~.)+
-  labs(
-    title = "Bike Accidents Per Location Type",
-    x = "Location Type",
-    y = "Number of Crashes"
-  ) +
-  theme_minimal()
-```
 
 ```{r, echo=FALSE}
 table(bike$location_type)
@@ -333,9 +280,13 @@ crash_year_plots <- all_crashes | faceted_crashes
 crash_year_plots + plot_annotation(title="Number of Bike Crashes per Year")
 ```
 
-We investigated where each accident occurred, specifically if it was at an intersection or a street, with a catch all “other” category for the rest. We found that for the past decade the cumulative number of intersections and street accidents are almost the same, superficially disproving the idea that most accidents occur at intersections. If we do a year by year breakdown we can actually see that some years there are more intersection accidents than street bike accidents but there is no definitive trend we can identify. While this high level analysis confirms that intersections and streets have the same amount of risk levels for bike accidents, we will explore in more depth the geographical correlations and will see that certain intersections can be accidents hotspots.
+We investigated where each accident occurred, specifically if it was at an intersection or a street, with a catch all “other” category for the rest. We found that for the past decade the cumulative number of intersections and street accidents are almost the same, superficially disproving the idea that most accidents occur at intersections. However, if we do a year by year breakdown we can actually see that while street only accidents more or less mirror the overall behavior of all accidents, intersection specific accidents have been steadily decreasing over the decades, to the point where in more recent years there are less interesection accidents than street accidents. This may be attributed with the fact that Boston could be been focusing on improving bike safety specifically at intersections because they've been identified as high accident zones. Overall, this high level analysis confirms that over the past decade, intersection and street accidents have had similar rates of risk, though there seems to be some factor that has been decreasing intersection accidents over the years.
 
-While plotting individual accidents can be useful, a more simplified view can give us better insights into whether there are any significant trends. One such way is to utilize a heatmap.To make the visualization even more simplified, a gridded heatmap of the accidents was made to clearly showcase areas of high accidents. Using leaflet, we also were able to make it interactive to give information on the total number of accidents in that geographic grid, number of trips made from the stations in the grid, and the accidents-to-trips ratio. We made two separate grid views as well.
+While plotting individual accidents can be useful, a more simplified view can give us better insights into whether there are any significant trends. One such way is to utilize a heatmap.To make the visualization even more simplified, a grided heatmap of the accidents was made to clearly showcase areas of high accidents. Using leaflet, we also were able to make it interactive to give information on the total number of accidents in that geographic grid, number of trips made from the stations in the grid, and the accidents-to-trips ratio. We made two separate grid views as well.
+
+### Grid Heatmap of Accidents in Boston
+
+##### A simplified heatmap geographically showing total bike accidents per geographic cell to highlight accident hotspots
 
 ```{r, echo=FALSE}
 cell_size <- 0.002 #Grid Cell Size  
@@ -383,6 +334,7 @@ pal <- colorNumeric(
 )
 
 leaflet(grid_data) |>
+  setView(lng = -71.1, lat = 42.35, zoom = 12) |>  # Boston area
   addTiles() |>
   addRectangles(
     lng1 = ~lng_bin,
@@ -411,9 +363,20 @@ leaflet(grid_data) |>
 
 The first is a standard grid view of accidents per geographic grid. We can see visually that Mass Ave and Brighton/Commonwealth Ave have consistent streams of accidents along the road and intersections on it. This makes sense since these are areas with high traffic, thus accidents would probably occur here. However, areas like South Huntington Avenue and Tremont street also had noticeably high numbers of accidents in the past decade compared to other streets, something we did not expect.
 
-![](images/clipboard-2650805866.png)
+### Heatmap of Accidents in Boston with Hotspot Roads
+
+##### Visualization highlighting hotspot roads overlaid as shown by the heatmap 
+
+```{}
+```
+
+![](images/clipboard-1074527958.png)
 
 Now, given that this view does not take into account the sheer volume of trips taken in busy areas for the number of bike accidents, we made a visualization where we normalized each grid based on the accidents-to-trips ratio—simply taking the total number of accidents in the geographic area and then dividing it by the number of blue bike trips started in the geographic grid—to estimate how the map would look like normalized. This figure showcases areas where the percentage of accidents in relation to trips are higher than the number of trips started there. Unlike our first grid heatmap, we can see that this visualization highlights different locations, and high accident prone areas, like Mass Ave, do not stick out because their accident percentage is almost 0% of all trips taken there. Using this view, we can see that random spots in Back Bay, Boylston, and near Tufts Medical center have 1% of all trips started there were accidents.
+
+### Grid Heatmap of Accidents-to-Trips Ratio in Boston
+
+##### A simplified heatmap geographically showing total accidents-to-trips ratio to highlight accident hotspots
 
 ```{r, echo=FALSE}
 pal <- colorNumeric(
@@ -423,6 +386,7 @@ pal <- colorNumeric(
 )
 
 leaflet(grid_data)|>
+  setView(lng = -71.1, lat = 42.35, zoom = 12) |>  # Boston area
   addTiles() |>
   addRectangles(
     lng1 = ~lng_bin,
@@ -507,6 +471,10 @@ knitr::kable(bike_labels, caption="Codebook for Bike Facility IDs, Ordered by Ve
 ```
 
 For example, a shared bike lane with vehicles (no clear demarcation of what is a bike lane versus car lane) would probably pose higher danger levels to bicyclists for crashes with other vehicles given the vicinity of cars compared to a clear and separate bike lane. Using the geographical data provided to us by the Boston Bikes department, we overlayed a heatmap of accidents with lane data to understand the relationship between the infrastructure provided to a cyclist and the likelihood of an accident there.
+
+### Bike Lane Map with Accident Heatmap of Boston
+
+##### An interactive map showing bike data with lanes colored based on qualitiative danger level
 
 ```{r, echo=FALSE}
 bike_crashes <- boston_crashes_raw %>%
@@ -630,39 +598,49 @@ leaflet() %>%
     }
   ")
 ```
+
 Here we can see that the accidents are most concentrated in the city limits, and that the biggest hotspots are present on Mass Ave, Commonwealth Ave, on State Street, and on Cambridge St. Inspecting the map more closely reveals a higher density of accidents around intersections, especially at the junction between Mass Ave and Southampton Street, which we will explore below. Closer inspection around the different types of lanes reveals that the roads with lower vehicle exposure (for instance, Southwest Corridor in green) have significantly less accidents than roads with higher exposure like at the intersection of Commonwealth and Harvard Ave, which have shared lane markings and a bike lane/shared lane hybrid structure respectively. There are also some notable concentrations of accidents outside the bike lane infrastructure entirely, like near the southwest portion of Southwest Corridor where it intersects with Tremont Street (although no accidents occurred on the street itself).
+
+### Mass Ave & Southhampton Street Deep Dive
 
 We used Google street view to investigate further into the aforementioned Mass Ave and Southampton Street intersection.
 
-Street view at this intersection reveals Southampton St as a 4 lane road with no bicycle infrastructure, thin sidewalks with frequent interruptions/curb cuts, and a clearly car-dependent architecture. 
+![](images/clipboard-3298361953.png)
 
+Street view at this intersection reveals Southampton St as a 4 lane road with no bicycle infrastructure, thin sidewalks with frequent interruptions/curb cuts, and a clearly car-dependent architecture.
 
-In mild contrast, Mass Ave has a separated protected bike lane at this merge. However, the traffic on this road seems to be dominated by larger vehicles and an optimization for cars, and there is no protection at intersections for cyclists. Even more importantly, there was a bicyclist fatality just north of this intersection on April 22, 2020. This is one of 11 total fatalities in Boston since January 1st, 2015, with 3 total fatalities along the whole of Mass Ave in 2015, 2020, and 2022. 
+![](images/clipboard-2586077604.png)
 
+In mild contrast, Mass Ave has a separated protected bike lane at this merge. However, the traffic on this road seems to be dominated by larger vehicles and an optimization for cars, and there is no protection at intersections for cyclists. Even more importantly, there was a bicyclist fatality just north of this intersection on April 22, 2020. This is one of 11 total fatalities in Boston since January 1st, 2015, with 3 total fatalities along the whole of Mass Ave in 2015, 2020, and 2022.
 
 To further characterize the most dangerous Boston streets and identify the most impactful possible infrastructural improvements towards reducing bike accidents, we referenced a [2017 Boston Magazine report](https://www.bostonmagazine.com/news/2017/03/01/boston-bike-traffic-data/#:~:text=Massachusetts%20Ave%20Columbus%20Avenue%20%E2%80%94%20797%20bicyclists). This report records the number of cyclists recorded at the top ten busiest cycling roads during a particular 24 hour period in September 2016. According to the report, the top ten Boston roads with the most cyclists were:
 
-1. Massachusetts Ave. Bridge, south of Back Street — 3,081 bicyclists
+1.  Massachusetts Ave. Bridge, south of Back Street — 3,081 bicyclists
 
-2. BU Bridge, north of Commonwealth Avenue — 1,957 bicyclists
+2.  BU Bridge, north of Commonwealth Avenue — 1,957 bicyclists
 
-3. Commonwealth Avenue, west of Silber Way — 1,571 bicyclists
+3.  Commonwealth Avenue, west of Silber Way — 1,571 bicyclists
 
-4. Southwest Corridor Bicycle Path, south of Heath Street — 1,554 bicyclists
+4.  Southwest Corridor Bicycle Path, south of Heath Street — 1,554 bicyclists
 
-5. Longwood Avenue, east of Pilgrim Road — 1,348 bicyclists
+5.  Longwood Avenue, east of Pilgrim Road — 1,348 bicyclists
 
-6. North Harvard Street, south of Soldiers Field Road — 1,320 bicyclists
+6.  North Harvard Street, south of Soldiers Field Road — 1,320 bicyclists
 
-7. Columbus Avenue, west of Massachusetts Avenue — 1,314 bicyclists
+7.  Columbus Avenue, west of Massachusetts Avenue — 1,314 bicyclists
 
-8. Brighton Avenue, east of St. Lukes Road — 1,063 bicyclists
+8.  Brighton Avenue, east of St. Lukes Road — 1,063 bicyclists
 
-9. Columbus Avenue, west of Holyoke Street — 825 bicyclists
+9.  Columbus Avenue, west of Holyoke Street — 825 bicyclists
 
 10. Massachusetts Avenue, south of Columbus Avenue — 797 bicyclists
 
 To compare these busyness metrics with the number of crashes per road, we first characterized the raw number of crashes for all roads with greater than 20 bicycle accidents in Boston without normalization:
+
+### Bar Charts of Roads with Highest Accidents
+
+##### Bar charts ranking roads in Boston with the highest bike accidents
+
 ```{r, echo=FALSE}
 dangerous_roads_stats <- bike_network %>%
   as_tibble() %>% 
@@ -757,55 +735,18 @@ What this reveals to us is that the roads with the most room for growth in bicyc
 
 We also overlaid our grid heatmap of accidents with our streetview, and we noticed immediately that certain areas had higher concentration of accidents. The grid view heatmap allowed us to see a lot more easily where accidents were concentrated, and we could now see certain intersections were exceptionally high in terms of accidents.
 
-```{r, echo=FALSE}
-bike_crashes <- boston_crashes_raw %>%
-  filter(mode_type == "bike") %>%
-  drop_na(lat, long) %>%
-  st_as_sf(coords = c("long", "lat"), crs = 4326)
+### Bike Lane Map with Accident Heatmap of Boston
 
-roads_projected <- st_transform(bike_network, 2249)
-crashes_projected <- st_transform(bike_crashes, 2249)
-
-nearest_road_indices <- st_nearest_feature(crashes_projected, roads_projected)
-
-road_counts <- table(nearest_road_indices)
-bike_network$crash_count <- 0
-bike_network$crash_count[as.numeric(names(road_counts))] <- as.numeric(road_counts)
-
-# sorted from most dangerous (top of legend) to safest (bottom of legend)
-safety_order <- c(
-  "SLM",        # Shared Lane Markings (Zero protection, full mixing)
-  "BL-PEAKBUS", # Bike Lane/Peak Hour Bus Lane (High-speed heavy vehicle mixing)
-  "CFBS",       # Contraflow Bike Street (Shared space with opposing traffic)
-  "BLSL",       # Bike Lane/Shared Lane Hybrid (Inconsistent protection)
-  "SBLSL",      # Separated Bike Lane/Shared Lane Hybrid (Gaps in protection)
-  "SLMTC",      # Traffic-Calmed Local Street with Shared Lane Markings
-  "CFBL",       # Contraflow Bike Lane (Painted-only, high conflict risk)
-  "BL",         # Bike Lane (Standard painted lane, door-zone risk)
-  "BFBL",       # Buffered Bike Lane (Paint buffer, but no physical barrier)
-  "SBLBL",      # Separated Bike Lane/Bike Lane Hybrid
-  "SBL",        # Separated Bike Lane (Standard flex-post or curb)
-  "CFSBL",      # Contraflow Separated Bike Lane (High protection)
-  "SUPN",       # Shared Use Path - Natural Surface (Safe from cars, but slip risk)
-  "SUPM",       # Shared Use Path - Minor
-  "SUP",        # Shared Use Path (Fully off-street)
-  "WALK",       # Walkway
-  "PED"         # Pedestrian Zone (Lowest vehicle interaction)
-)
-
-bike_network$ExisFacil <- factor(bike_network$ExisFacil, levels = safety_order)
-
-```
+##### An interactive map showing bike data with lanes colored based on qualitiative danger level
 
 ```{r, echo=FALSE}
 
-#### Visualizations ###################
 pal1 <- colorFactor(
-  palette = c("#e41a1c", "#6250FF", "#00A719"),
+  palette = danger_colors,
+  levels = safety_order,
   domain = bike_network$ExisFacil
 )
 
-# No cap — full range
 pal2 <- colorNumeric(
   palette = c("#fff7bc", "red", "#7f0000"),
   domain = grid_data$bike,
@@ -858,21 +799,33 @@ One thing that immediately stuck out was that some intersections were accident h
 
 ![](images/clipboard-1951577369.png)
 
-In fact, a lot of the accident prone grid cells often were at an intersection that was a blend of buffered bike lanes and shared lane markings. For example Mass Ave, which had the highest number of accidents along it, had higher concentrations on the intersections with SLMs mixed into it.  Below are a list of intersections that were particularly high in terms of accident count and had a mix of SLM and BFBLs on Mass Ave. 
+In fact, a lot of the accident prone grid cells often were at an intersection that was a blend of buffered bike lanes and shared lane markings. For example Mass Ave, which had the highest number of accidents along it, had higher concentrations on the intersections with SLMs mixed into it. Below are a list of intersections that were particularly high in terms of accident count and had a mix of SLM and BFBLs on Mass Ave. 
 
-Perusing the rest of the map, we can see that there are definitely grid cells that are on intersections that have higher accident counts than their nearby grid cells.This could reinforce the idea that more accidents are likely to occur at intersections given several hotspots for accidents occurring at intersections. While the sheer number of accidents over the decade have shown that accidents at intersections and streets are equal, specific intersections can become hotspots for accidents. This makes sense given that intersections are complex areas in which many cars can go in different directions at once, which can lead to confusion and bike accidents. In intersections with high traffic and the added complexity of bike lanes having separate lanes and clear demarcations blending into a shared lane marking (SLM) could add to the confusion, leading to the intersection becoming a hotspot for accidents. 
+-   Beacon Street (49 Accidents)
+
+-   Commonwealth Ave (39 Accidents)
+
+-   Huntington Ave (22 Accidents)
+
+-   Bolyston Street (18 Accidents)
+
+-   Washington Street (17 Accidents)
+
+Perusing the rest of the map, we can see that there are grid cells that are on intersections that have higher accident counts than their nearby grid cells. This could reinforce the idea that more accidents are likely to occur at intersections given several hotspots for accidents occurring at intersections. While the sheer number of accidents over the decade have shown that accidents at intersections and streets are equal, specific intersections can become hotspots for accidents. This makes sense given that intersections are complex areas in which many cars can go in different directions at once, which can lead to confusion and bike accidents. In intersections with high traffic and the added complexity of bike lanes having separate lanes and clear demarcations blending into a shared lane marking (SLM) could add to the confusion, leading to the intersection becoming a hotspot for accidents. 
 
 The confusion attributed by bike lanes suddenly disappearing that could potentially cause accidents is not only applicable to intersections. We can also see that there are parts of the map where accidents spike up compared to its nearby grid cells, with an SLM in the vicinity. A strip of road along Dorchester Ave has a spike in accidents right in the spot where the road switches from Bike Lane (BL) to a SLM (and based on the map also contains a multi road intersection).
 
 ![](images/clipboard-3869573678.png)
 
-Other instances of this can be seen on Columbia Road, Brighton Avenue, and more, where the sudden shift from a bike lane to an SLM leads to a spike in accidents. We could speculate that the spike in accidents is caused by a number of factors, including the confusion attributed to a sudden lack of bike infrastructure. It is important to note that we cannot fully isolate whether the switch is the problem or not. For exmaple,, a street only with SLMs, like Washington Street, actually has a fairly low number of accidents (although they do have some accidents). 
+Other instances of this can be seen on Columbia Road, Brighton Avenue, and more, where the sudden shift from a bike lane to an SLM leads to a spike in accidents. We could speculate that the spike in accidents is caused by a number of factors, including the confusion attributed to a sudden lack of bike infrastructure. It is important to note that we cannot fully isolate whether the switch is the problem or not. For exmaple, a street only with SLMs, like Washington Street, actually has a fairly low number of accidents (although they do have some accidents). 
 
 ![](images/clipboard-1332675535.png)
 
 While this could be used to support the idea that higher accidents are strongly attributed to the confusion of bike infrastructure changing, the low number of accidents could also be because there were no bike lanes on Washington Street the first place, so bicyclists could have just avoided using Washington Street and opted to use a street with more bike infrastructure. All we can conclude from these visuals is that there seems to be a correlation between intersections and accidents, as well as bike lane switches to a SLM and accidents. 
 
 ## Analysis of Bike Facilities
+
+Continuing with our analysis on different bike facilities, we decided to rank the different facilities and bike lanes to see if we could further prove which ones are the most dangerous. Below are the lanes ranked by number of crashes.
 
 ```{r, include=FALSE}
 # Importing all data used in this section
@@ -881,26 +834,30 @@ crashes_by_facility <- read_csv("./data/crashes_by_facility.csv")
 facility_counts <- read_csv("./data/facility_counts.csv")
 ```
 
-### Bike Facilities
+### Bike Facilities Ranked
 
 ```{r, echo=FALSE}
 knitr::kable(facility_codebook, caption="Codebook for Bike Facility IDs, Ordered by Number of Crashes (Decreasing)")
 ```
 
-These are the types of bike facilities and infrastructure we’ll be looking at, ranked from most dangerous to least dangerous. Most are self explanatory, however there are a few terms worth explaining:  
+These are the types of bike facilities and infrastructure we’ll be looking at, ranked from most dangerous to least dangerous. Most are self explanatory, however there are a few terms worth explaining:
 
-* A *contraflow* bike lane is a bike lane on a one-way street that goes against the flow of car traffic.
-* *Peak hour* is another term for rush hour. A peak hour bus lane is a bike lane that is also shared with buses only during rush hour.
-* A *buffered* bus lane is similar to a separated bike lane, except it’s shared with buses.
-* A *traffic calmed street* has speed bumps, raised crosswalks, and other implements to keep traffic in check.
+-   A *contraflow* bike lane is a bike lane on a one-way street that goes against the flow of car traffic.
+-   *Peak hour* is another term for rush hour. A peak hour bus lane is a bike lane that is also shared with buses only during rush hour.
+-   A *buffered* bus lane is similar to a separated bike lane, except it’s shared with buses.
+-   A *traffic calmed street* has speed bumps, raised crosswalks, and other implements to keep traffic in check.
 
-The Vision Zero Network is a campaign dedicated to eliminating traffic-related fatalities and injuries, which includes collecting detailed data about accidents in several cities worldwide, including Boston ([Vision Zero Boston, 2015-2026](https://experience.arcgis.com/experience/bae68e65908f45e1bcc86fe5f089d266/page/Main-Grid-after-9%2F3)). This includes bike accidents, which are denoted with the time, date, street, and precise latitude and longitude on which the accident took place. The Massachusetts Department of Transportation (MASSDOT) collects its own publicly available data about Boston streets ([BostonMaps, 2024](https://gis.data.mass.gov/datasets/boston::city-of-boston-managed-streets/about)), including the number of lanes on each street and their length in feet. Lastly, MASSDOT also takes a yearly bike inventory ([geoDOT Admin, 2024](https://geo-massdot.opendata.arcgis.com/datasets/MassDOT::bike-inventory-2024/about)), which tracks information about the state’s bike infrastructure on its streets, including different types of bike facilities in Boston and which streets they live on.  
+The Vision Zero Network is a campaign dedicated to eliminating traffic-related fatalities and injuries, which includes collecting detailed data about accidents in several cities worldwide, including Boston ([Vision Zero Boston, 2015-2026](https://experience.arcgis.com/experience/bae68e65908f45e1bcc86fe5f089d266/page/Main-Grid-after-9%2F3)). This includes bike accidents, which are denoted with the time, date, street, and precise latitude and longitude on which the accident took place. The Massachusetts Department of Transportation (MASSDOT) collects its own publicly available data about Boston streets ([BostonMaps, 2024](https://gis.data.mass.gov/datasets/boston::city-of-boston-managed-streets/about)), including the number of lanes on each street and their length in feet. Lastly, MASSDOT also takes a yearly bike inventory ([geoDOT Admin, 2024](https://geo-massdot.opendata.arcgis.com/datasets/MassDOT::bike-inventory-2024/about)), which tracks information about the state’s bike infrastructure on its streets, including different types of bike facilities in Boston and which streets they live on.
 
-All three of these datasets include the names of streets in Boston, although they differ in capitalization and abbreviation (i.e. Ave vs Avenue). After fixing for those two factors, the three datasets can be joined to give the number of bike accidents on each street in Boston since 2015, as well as the bike facilities, the length, and the number of lanes on each of those streets.  
+All three of these datasets include the names of streets in Boston, although they differ in capitalization and abbreviation (i.e. Ave vs Avenue). After fixing for those two factors, the three datasets can be joined to give the number of bike accidents on each street in Boston since 2015, as well as the bike facilities, the length, and the number of lanes on each of those streets.
 
-### Linear Regression
+### Linear Regression Model
 
-Using the data, we found exactly that, then normalized the count of bike accidents per street by dividing the count of crashes by three factors we believed would make a difference. The first was the length of the street, in feet: a longer street should have more crashes. The second was the number of lanes on each street: more lanes should make a street more dangerous. The third was the product of the two (length times number of lanes), which we refer to as area. We then ordered the bike facilities from most crashes per area to least crashes per area, plotted each type of normalization of bike crashes vs facility number (see chart above), and performed linear regression to find a best fit line, shown below.  
+Using the data, we found exactly that, then normalized the count of bike accidents per street by dividing the count of crashes by three factors we believed would make a difference. The first was the length of the street, in feet: a longer street should have more crashes. The second was the number of lanes on each street: more lanes should make a street more dangerous. The third was the product of the two (length times number of lanes), which we refer to as area. We then ordered the bike facilities from most crashes per area to least crashes per area, plotted each type of normalization of bike crashes vs facility number (see chart above), and performed linear regression to find a best fit line, shown below.
+
+### Regression Plots of Bike Facility and Crashes
+
+##### Linear regression modelling the relationship between bike facility and bike crashes
 
 ```{r, echo=FALSE}
 area_plot <- ggplot(crashes_by_facility, aes(x=facil_id, y=crashes_per_area)) +
@@ -925,19 +882,23 @@ regression_plots <- area_plot | (distance_plot/lane_plot)
 regression_plots + plot_annotation(title="Regression Plots")
 ```
 
-This shows the relationship between the type of bike facility and the number of crashes. Both crashes per area vs facility number and crashes per foot vs facility number show a negative and mostly linear trend, while crashes per lane does not when all are ordered the same. This could imply that the number of lanes does not have as much of an impact on the number of crashes as the length of the street, meaning that lane count isn’t as much of an issue as we thought it would be.  
+This shows the relationship between the type of bike facility and the number of crashes. Both crashes per area vs facility number and crashes per foot vs facility number show a negative and mostly linear trend, while crashes per lane does not when all are ordered the same. This could imply that the number of lanes does not have as much of an impact on the number of crashes as the length of the street, meaning that lane count isn’t as much of an issue as we thought it would be.
 
-Additionally, while the trend is mostly linear, SBLSL (separated bike lane on one side, shared lane on other side) is the most dangerous facility type by a significant margin. Separated bike lanes are the 5th most dangerous facility type on their own while shared lane markings are the 8th most dangerous, but together, they mean danger for bikers. This could be a result of confusion for drivers, as bike lane conditions differ on either side of the road.  
+Additionally, while the trend is mostly linear, SBLSL (separated bike lane on one side, shared lane on other side) is the most dangerous facility type by a significant margin. Separated bike lanes are the 5th most dangerous facility type on their own while shared lane markings are the 8th most dangerous, but together, they mean danger for bikers. This could be a result of confusion for drivers, as bike lane conditions differ on either side of the road.
 
-Another surprising result was that walkways were the 4th most dangerous type of facility, which shows that cars aren’t the only danger for cyclists. When a biker has to share their area with pedestrians, they either risk hitting a pedestrian or they get onto the road and risk getting hit by a car, both of which could be dangerous. Cyclists need their own area - sharing creates danger.  
+Another surprising result was that walkways were the 4th most dangerous type of facility, which shows that cars aren’t the only danger for cyclists. When a biker has to share their area with pedestrians, they either risk hitting a pedestrian or they get onto the road and risk getting hit by a car, both of which could be dangerous. Cyclists need their own area - sharing creates danger.
 
-However, pedestrianized streets are the 4th least dangerous, which is another situation in which cyclists would share with pedestrians. However, if the full street is shared with pedestrians as opposed to just a smaller sidewalk or walkway, that gives both groups their own room to stay safe and avoid collisions. The other facility types with the lowest crash rates (contraflow bike lane, shared use path, and shared lane markings on a traffic calmed street) are likely safer not because of the facilities themselves, but because of the conditions that led them to be made. For instance, a traffic calmed street isn’t safe because of the shared lane markings, but because cars are forced to go slowly thanks to the traffic calming. Additionally, a shared use path doesn’t have any other infrastructure likely because there’s already so little of a risk of collision, which could be a result of low traffic.  
+However, pedestrianized streets are the 4th least dangerous, which is another situation in which cyclists would share with pedestrians. However, if the full street is shared with pedestrians as opposed to just a smaller sidewalk or walkway, that gives both groups their own room to stay safe and avoid collisions. The other facility types with the lowest crash rates (contraflow bike lane, shared use path, and shared lane markings on a traffic calmed street) are likely safer not because of the facilities themselves, but because of the conditions that led them to be made. For instance, a traffic calmed street isn’t safe because of the shared lane markings, but because cars are forced to go slowly thanks to the traffic calming. Additionally, a shared use path doesn’t have any other infrastructure likely because there’s already so little of a risk of collision, which could be a result of low traffic.
 
-Notably, shared bike lanes (including peak hour bus lanes) were quite low, which was not a result of low traffic. Peak hour bus lanes are used during rush hour, after all - there’s no shortage of traffic. We expected bike lanes shared with buses to be much more dangerous for bikers, but they weren’t, which could be because bus drivers need to be trained much better than regular drivers, and are therefore better at working around bikers in their lanes. For a cyclist, it appears to be safer to share a lane with a trained bus driver than any other car driver.  
+Notably, shared bike lanes (including peak hour bus lanes) were quite low, which was not a result of low traffic. Peak hour bus lanes are used during rush hour, after all - there’s no shortage of traffic. We expected bike lanes shared with buses to be much more dangerous for bikers, but they weren’t, which could be because bus drivers need to be trained much better than regular drivers, and are therefore better at working around bikers in their lanes. For a cyclist, it appears to be safer to share a lane with a trained bus driver than any other car driver.
 
 ### Prevalence of Different Facilities
 
-What we've found so far suggests that some facilities are more dangerous than others - not all bike facilities are created equal. In an ideal and bike-safe Boston, the safest facilities would be the most common. Is that true of the Boston in our reality?  
+What we've found so far suggests that some facilities are more dangerous than others - not all bike facilities are created equal. In an ideal and bike-safe Boston, the safest facilities would be the most common. Is that true of the Boston in our reality?
+
+### Most Common Bike Facility Types VS Crashes
+
+##### The proportion between the most common bike lanes in Boston and how many crashes occur near it
 
 ```{r, echo=FALSE}
 ggplot(facility_counts, aes(x=proportion, y=crashes_per_area)) +
@@ -947,27 +908,30 @@ ggplot(facility_counts, aes(x=proportion, y=crashes_per_area)) +
   labs(x="Proportion of Total Bike Facilities", y="Bike Crashes per Street Area", title="Crashes per Area vs Proportion of Total Bike Facilities")
 ```
 
-The x axis here shows the proportion of total bike facilities, meaning the fraction of all of Boston's bike facilities made up by facilities of that particular type. The y axis is the data we have already been looking at: bike crashes per street area. The most common facility types by far are shared lane markings and straight-up bike lanes. Next are separated bike lanes, then bike lane/shared lane and buffered bike lanes are quite similar, and the rest all make up less than 5% of Boston's total bike facilities.  
+The x axis here shows the proportion of total bike facilities, meaning the fraction of all of Boston's bike facilities made up by facilities of that particular type. The y axis is the data we have already been looking at: bike crashes per street area. The most common facility types by far are shared lane markings and straight-up bike lanes. Next are separated bike lanes, then bike lane/shared lane and buffered bike lanes are quite similar, and the rest all make up less than 5% of Boston's total bike facilities.
 
-Shared lane markings as the most common facility type is a good sign, as they're the eighth most dangerous facility type (out of 14), with less than 0.0015 crashes per street area. However, bike lanes are similarly common despite being the third most dangerous facility type, with 0ver 0.002 crashes per street area. While the number is quite small, it's still greater than that of 11 of the other facility types. Separated bike lanes are very similar in terms of bike crashes per street area, and they are the third most common of Boston's bike facilities. While these infrastructures work for avoiding most crashes, other facility types appear more effective for a safer Boston.  
+Shared lane markings as the most common facility type is a good sign, as they're the eighth most dangerous facility type (out of 14), with less than 0.0015 crashes per street area. However, bike lanes are similarly common despite being the third most dangerous facility type, with 0ver 0.002 crashes per street area. While the number is quite small, it's still greater than that of 11 of the other facility types. Separated bike lanes are very similar in terms of bike crashes per street area, and they are the third most common of Boston's bike facilities. While these infrastructures work for avoiding most crashes, other facility types appear more effective for a safer Boston.
 
 For instance, buffered bike lanes are one of the safer facility types, and they're quite common, making up just under 10% of Boston's bike facilities. Those and shared lane markings are both quite common and quite safe, and may be a good direction for Boston moving forward. One may not expect shared lane markings to be so safe, especially compared to designated bike lanes, but the data shows otherwise. That may be a result of drivers being more careful when they have to share the lane with bikers, or they may just be built on roads that already don't have as dangerous traffic. This isn't enough data to conclude exactly why they appear safer, but the circumstances that lead to less bike crashes on roads with shared lane markings would be worth studying further.
 
 ## General Conclusions
+
 ### Is Boston Safe for Bikers? (Yes!)
-Yes, Boston is very safe for bikers! Even where crashes existed, they were often quite small in number. Bike usage has increased over the years (as signified by increased numbers of Blue Bike trips over the last decade), yet the number of bike crashes has been declining. The number of fatal bike crashes in 2025 was 13, compared to 2015’s 20. Still, as the Vision Zero Boston campaign puts it, “even one fatality is too many.” ([Vision Zero Boston](https://www.boston.gov/departments/transportation/vision-zero)). The city of Boston’s Go Boston 2030 Program launched in 2017 and has been dedicated to improving transportation in Boston since, including bike transport and general cyclist safety. One of its sub-programs is called Better Bike Lanes, which is directly applicable to what we’ve been talking about: improving bike lanes to make Boston safer for bikers. Evidently, their developments are working.  
+
+Yes, Boston is very safe for bikers! Even where crashes existed, they were often quite small in number. Bike usage has increased over the years (as signified by increased numbers of Blue Bike trips over the last decade), yet the number of bike crashes has been declining. The number of fatal bike crashes in 2025 was 13, compared to 2015’s 20. Still, as the Vision Zero Boston campaign puts it, “even one fatality is too many.” ([Vision Zero Boston](https://www.boston.gov/departments/transportation/vision-zero)). The city of Boston’s Go Boston 2030 Program launched in 2017 and has been dedicated to improving transportation in Boston since, including bike transport and general cyclist safety. One of its sub-programs is called Better Bike Lanes, which is directly applicable to what we’ve been talking about: improving bike lanes to make Boston safer for bikers. Evidently, their developments are working.
 
 ### What to Focus on Moving Forward
-Although Boston’s bike infrastructure has been steadily improving over the last decade, there are still improvements to be made before Boston Vision Zero can achieve its goals of eliminating traffic-related fatalities and severe injuries completely. For instance, despite bike lanes with no added form of protection being the third most dangerous type of facility by our metrics, it’s still the second most common type of bike facility of the Boston bike inventory data (just behind shared lane markings). The third most common type of bike facility in Boston is the separated bike lane, which also happens to be the fifth most dangerous. Both bike lanes and separated bike lanes have 3-5 injured cyclists for every 1000 feet of road, which isn’t a lot, but it’s certainly not zero. Working towards building more effective bike infrastructure and calming traffic where possible would no doubt improve cyclist safety in Boston.  
 
+Although Boston’s bike infrastructure has been steadily improving over the last decade, there are still improvements to be made before Boston Vision Zero can achieve its goals of eliminating traffic-related fatalities and severe injuries completely. For instance, despite bike lanes with no added form of protection being the third most dangerous type of facility by our metrics, it’s still the second most common type of bike facility of the Boston bike inventory data (just behind shared lane markings). The third most common type of bike facility in Boston is the separated bike lane, which also happens to be the fifth most dangerous. Both bike lanes and separated bike lanes have 3-5 injured cyclists for every 1000 feet of road, which isn’t a lot, but it’s certainly not zero. Working towards building more effective bike infrastructure and calming traffic where possible would no doubt improve cyclist safety in Boston.
 
 ## Works Cited
-Bluebikes. (2011-2025). Bluebikes Trip History Data [Data set]. Lyft Bikes and Scooters, LLC. https://bluebikes.com/system-data. May 1, 2025
 
-BostonMaps. (2024). City of Boston Managed Streets [Data set]. Boston GIS. https://gis.data.mass.gov/datasets/boston::city-of-boston-managed-streets/about. May 1, 2025.
+Bluebikes. (2011-2025). Bluebikes Trip History Data [Data set]. Lyft Bikes and Scooters, LLC. <https://bluebikes.com/system-data>. May 1, 2025
 
-geoDOT Admin. (2024). Bike Inventory 2024 [Data set and code book]. Massachusetts geoDOT. https://geo-massdot.opendata.arcgis.com/datasets/MassDOT::bike-inventory-2024/about. May 1, 2025.
+BostonMaps. (2024). City of Boston Managed Streets [Data set]. Boston GIS. <https://gis.data.mass.gov/datasets/boston>::city-of-boston-managed-streets/about. May 1, 2025.
 
-Vision Zero Boston. (2015-2026). Vision Zero Crash Records [Data set]. Department of Innovation and Technology. https://experience.arcgis.com/experience/bae68e65908f45e1bcc86fe5f089d266/page/Main-Grid-after-9%2F3. May 1, 2025.
+geoDOT Admin. (2024). Bike Inventory 2024 [Data set and code book]. Massachusetts geoDOT. <https://geo-massdot.opendata.arcgis.com/datasets/MassDOT>::bike-inventory-2024/about. May 1, 2025.
 
-Vision Zero Boston. (2015-2026). Vision Zero Fatality Records [Data set]. Department of Innovation and Technology. https://experience.arcgis.com/experience/bae68e65908f45e1bcc86fe5f089d266/page/Main-Grid-after-9%2F3. May 1, 2025.
+Vision Zero Boston. (2015-2026). Vision Zero Crash Records [Data set]. Department of Innovation and Technology. <https://experience.arcgis.com/experience/bae68e65908f45e1bcc86fe5f089d266/page/Main-Grid-after-9%2F3>. May 1, 2025.
+
+Vision Zero Boston. (2015-2026). Vision Zero Fatality Records [Data set]. Department of Innovation and Technology. <https://experience.arcgis.com/experience/bae68e65908f45e1bcc86fe5f089d266/page/Main-Grid-after-9%2F3>. May 1, 2025.
