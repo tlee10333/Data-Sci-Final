@@ -113,6 +113,11 @@ head(bike_network)
 bike_network_2022 <- st_read("./data/existing_bike_network_2022.json") %>% 
   st_transform(4326) # Ensure WGS84 for Leaflet
 head(bike_network_2022)
+
+# Importing all data used in this section
+facility_codebook <- read_csv("./data/facility_codebook.csv")
+crashes_by_facility <- read_csv("./data/crashes_by_facility.csv")
+facility_counts <- read_csv("./data/facility_counts.csv")
 ```
 
 ## General Insights and Visualizations.
@@ -609,6 +614,96 @@ Street view at this intersection reveals Southampton Street as a 4 lane road wit
 
 In mild contrast, Massachusetts Avenue has a separated protected bike lane at this merge. However, the traffic on this road seems to be dominated by larger vehicles and an optimization for cars, and there is no protection at intersections for cyclists. Even more importantly, there was a bicyclist fatality just north of this intersection on April 22, 2020. This is one of 11 total fatalities in Boston since January 1st, 2015, with 3 total fatalities along the whole of Massachusetts Avenue in 2015, 2020, and 2022.
 
+We also overlaid our grid heatmap of accidents with our streetview, and we noticed immediately that certain areas had higher concentration of accidents. The grid view heatmap allowed us to see a lot more easily where accidents were concentrated, and we could now see certain intersections were exceptionally high in terms of accidents.
+
+### Bike Lane Map with Accident Heatmap of Boston
+
+##### An interactive map showing bike data with lanes colored based on qualitiative danger level
+
+```{r, echo=FALSE}
+
+pal1 <- colorFactor(
+  palette = danger_colors,
+  levels = safety_order,
+  domain = bike_network$ExisFacil
+)
+
+pal2 <- colorNumeric(
+  palette = c("#fff7bc", "red", "#7f0000"),
+  domain = grid_data$bike,
+  na.color = "transparent"
+)
+leaflet() %>%
+    addRectangles(
+    data = grid_data,
+    lng1 = ~lng_bin,
+    lat1 = ~lat_bin,
+    lng2 = ~lng_bin + cell_size,
+    lat2 = ~lat_bin + cell_size,
+    fillColor = ~pal2(bike),
+    fillOpacity = 0.7,
+    color = NA,
+    group = "Crash Hotspots Ratio",
+    popup = ~paste0(
+      "Accidents: ", bike, "<br>",
+      "Trips: ", trips, "<br>",
+      "Accidents to Trip Ratio: ", round(rate * 100, 2), "%"
+    )
+  ) %>%
+  
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolylines(
+    data = bike_network,
+    color = ~pal1(ExisFacil),
+    weight = 3,
+    opacity = 1,
+    label = ~paste0("Street: ", STREET_NAM, " | Crashes: ", crash_count),
+    group = "Infrastructure"
+  ) %>%
+
+  
+  addLayersControl(
+    overlayGroups = c("Infrastructure", "Crash Hotspots Ratio"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  
+  addLegend(
+  position = "bottomright",
+  colors = pal1(safety_order),
+  labels = safety_order,
+  title = "Road Category"
+)
+
+```
+
+One thing that immediately stuck out was that some intersections were accident hotspots. For example, as we did a deep dive earlier on the intersection between Massachusetts Avenue and Southampton street which contained 37 accidents, and the grid view showed us that in this particular area this intersection was a blend of Shared Lane Markings (SLM) and Buffered Bike Lanes (BFBL).
+
+![](images/clipboard-1951577369.png)
+
+In fact, a lot of the accident prone grid cells often were at an intersection that was a blend of buffered bike lanes and shared lane markings. For example Massachusetts Avenue, which had the highest number of accidents along it, had higher concentrations on the intersections with SLMs mixed into it. Below are a list of intersections that were particularly high in terms of accident count and had a mix of SLM and BFBLs on Massachusetts Avenue. 
+
+-   Beacon Street (49 Accidents)
+
+-   Commonwealth Avenue (39 Accidents)
+
+-   Huntington Avenue (22 Accidents)
+
+-   Bolyston Street (18 Accidents)
+
+-   Washington Street (17 Accidents)
+
+Perusing the rest of the map, we can see that there are grid cells that are on intersections that have higher accident counts than their nearby grid cells. This could reinforce the idea that more accidents are likely to occur at intersections given several hotspots for accidents occurring at intersections. While the sheer number of accidents over the decade have shown that accidents at intersections and streets are equal, specific intersections can become hotspots for accidents. This makes sense given that intersections are complex areas in which many cars can go in different directions at once, which can lead to confusion and bike accidents. In intersections with high traffic and the added complexity of bike lanes having separate lanes and clear demarcations blending into a shared lane marking (SLM) could add to the confusion, leading to the intersection becoming a hotspot for accidents. 
+
+The confusion attributed by bike lanes suddenly disappearing that could potentially cause accidents is not only applicable to intersections. We can also see that there are parts of the map where accidents spike up compared to its nearby grid cells, with an SLM in the vicinity. A strip of road along Dorchester Avenue has a spike in accidents right in the spot where the road switches from Bike Lane (BL) to a SLM (and based on the map also contains a multi road intersection).
+
+![](images/clipboard-3869573678.png)
+
+Other instances of this can be seen on Columbia Road, Brighton Avenue, and more, where the sudden shift from a bike lane to an SLM leads to a spike in accidents. We could speculate that the spike in accidents is caused by a number of factors, including the confusion attributed to a sudden lack of bike infrastructure. It is important to note that we cannot fully isolate whether the switch is the problem or not. For exmaple, a street only with SLMs, like Washington Street, actually has a fairly low number of accidents (although they do have some accidents). 
+
+![](images/clipboard-1332675535.png)
+
+While this could be used to support the idea that higher accidents are strongly attributed to the confusion of bike infrastructure changing, the low number of accidents could also be because there were no bike lanes on Washington Street the first place, so bicyclists could have just avoided using Washington Street and opted to use a street with more bike infrastructure. All we can conclude from these visuals is that there seems to be a correlation between intersections and accidents, as well as bike lane switches to a SLM and accidents. 
+
 To further characterize the most dangerous Boston streets and identify the most impactful possible infrastructural improvements towards reducing bike accidents, we referenced a [2017 Boston Magazine report](https://www.bostonmagazine.com/news/2017/03/01/boston-bike-traffic-data/#:~:text=Massachusetts%20Ave%20Columbus%20Avenue%20%E2%80%94%20797%20bicyclists). This report records the number of cyclists recorded at the top ten busiest cycling roads during a particular 24 hour period in September 2016. According to the report, the top ten Boston roads with the most cyclists were:
 
 1.  Massachusetts Avenue Bridge, south of Back Street — 3,081 bicyclists
@@ -729,106 +824,9 @@ Once we normalize for the number of cyclists, it reveals that although the de fa
 
 What this reveals to us is that the roads with the most room for growth in bicycle safety and the most direct impact on the number of crashes are Commonwealth Avenue, Massachusetts Avenue, and potentially Washington Street (see the first comparison of routes), although we do not have un-normalized figures for that particular street.
 
-We also overlaid our grid heatmap of accidents with our streetview, and we noticed immediately that certain areas had higher concentration of accidents. The grid view heatmap allowed us to see a lot more easily where accidents were concentrated, and we could now see certain intersections were exceptionally high in terms of accidents.
-
-### Bike Lane Map with Accident Heatmap of Boston
-
-##### An interactive map showing bike data with lanes colored based on qualitiative danger level
-
-```{r, echo=FALSE}
-
-pal1 <- colorFactor(
-  palette = danger_colors,
-  levels = safety_order,
-  domain = bike_network$ExisFacil
-)
-
-pal2 <- colorNumeric(
-  palette = c("#fff7bc", "red", "#7f0000"),
-  domain = grid_data$bike,
-  na.color = "transparent"
-)
-leaflet() %>%
-    addRectangles(
-    data = grid_data,
-    lng1 = ~lng_bin,
-    lat1 = ~lat_bin,
-    lng2 = ~lng_bin + cell_size,
-    lat2 = ~lat_bin + cell_size,
-    fillColor = ~pal2(bike),
-    fillOpacity = 0.7,
-    color = NA,
-    group = "Crash Hotspots Ratio",
-    popup = ~paste0(
-      "Accidents: ", bike, "<br>",
-      "Trips: ", trips, "<br>",
-      "Accidents to Trip Ratio: ", round(rate * 100, 2), "%"
-    )
-  ) %>%
-  
-  addProviderTiles(providers$CartoDB.Positron) %>%
-  addPolylines(
-    data = bike_network,
-    color = ~pal1(ExisFacil),
-    weight = 3,
-    opacity = 1,
-    label = ~paste0("Street: ", STREET_NAM, " | Crashes: ", crash_count),
-    group = "Infrastructure"
-  ) %>%
-
-  
-  addLayersControl(
-    overlayGroups = c("Infrastructure", "Crash Hotspots Ratio"),
-    options = layersControlOptions(collapsed = FALSE)
-  ) %>%
-  
-  addLegend(
-    pal = pal1,
-    values = bike_network$ExisFacil,
-    title = "Road Category",
-    position = "bottomright"
-  )
-
-```
-
-One thing that immediately stuck out was that some intersections were accident hotspots. For example, the intersection between Massachusetts Avenue and Albany street contained 37 accidents, and the grid view showed us that in this particular area this intersection was a blend of Shared Lane Markings (SLM) and Buffered Bike Lanes (BFBL).
-
-![](images/clipboard-1951577369.png)
-
-In fact, a lot of the accident prone grid cells often were at an intersection that was a blend of buffered bike lanes and shared lane markings. For example Massachusetts Avenue, which had the highest number of accidents along it, had higher concentrations on the intersections with SLMs mixed into it. Below are a list of intersections that were particularly high in terms of accident count and had a mix of SLM and BFBLs on Massachusetts Avenue. 
-
--   Beacon Street (49 Accidents)
-
--   Commonwealth Avenue (39 Accidents)
-
--   Huntington Avenue (22 Accidents)
-
--   Bolyston Street (18 Accidents)
-
--   Washington Street (17 Accidents)
-
-Perusing the rest of the map, we can see that there are grid cells that are on intersections that have higher accident counts than their nearby grid cells. This could reinforce the idea that more accidents are likely to occur at intersections given several hotspots for accidents occurring at intersections. While the sheer number of accidents over the decade have shown that accidents at intersections and streets are equal, specific intersections can become hotspots for accidents. This makes sense given that intersections are complex areas in which many cars can go in different directions at once, which can lead to confusion and bike accidents. In intersections with high traffic and the added complexity of bike lanes having separate lanes and clear demarcations blending into a shared lane marking (SLM) could add to the confusion, leading to the intersection becoming a hotspot for accidents. 
-
-The confusion attributed by bike lanes suddenly disappearing that could potentially cause accidents is not only applicable to intersections. We can also see that there are parts of the map where accidents spike up compared to its nearby grid cells, with an SLM in the vicinity. A strip of road along Dorchester Avenue has a spike in accidents right in the spot where the road switches from Bike Lane (BL) to a SLM (and based on the map also contains a multi road intersection).
-
-![](images/clipboard-3869573678.png)
-
-Other instances of this can be seen on Columbia Road, Brighton Avenue, and more, where the sudden shift from a bike lane to an SLM leads to a spike in accidents. We could speculate that the spike in accidents is caused by a number of factors, including the confusion attributed to a sudden lack of bike infrastructure. It is important to note that we cannot fully isolate whether the switch is the problem or not. For exmaple, a street only with SLMs, like Washington Street, actually has a fairly low number of accidents (although they do have some accidents). 
-
-![](images/clipboard-1332675535.png)
-
-While this could be used to support the idea that higher accidents are strongly attributed to the confusion of bike infrastructure changing, the low number of accidents could also be because there were no bike lanes on Washington Street the first place, so bicyclists could have just avoided using Washington Street and opted to use a street with more bike infrastructure. All we can conclude from these visuals is that there seems to be a correlation between intersections and accidents, as well as bike lane switches to a SLM and accidents. 
-
 ## Analysis of Bike Facilities
 
 Continuing with our analysis on different bike facilities, we decided to rank the different facilities and bike lanes to see if we could further prove which ones are the most dangerous. Below are the lanes ranked by number of crashes.
-
-```{r, include=FALSE}
-# Importing all data used in this section
-facility_codebook <- read_csv("./data/facility_codebook.csv")
-crashes_by_facility <- read_csv("./data/crashes_by_facility.csv")
-facility_counts <- read_csv("./data/facility_counts.csv")
-```
 
 ### Bike Facilities Ranked
 
